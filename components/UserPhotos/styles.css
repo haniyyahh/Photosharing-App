@@ -1,0 +1,4 @@
+.main-grid-item {
+  overflow-y: auto !important;
+  max-height: calc(100vh - 100px);
+}

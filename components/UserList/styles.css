@@ -1,0 +1,54 @@
+.count-bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 12px; 
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: white;
+  margin-left: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.3s ease;
+}
+
+.count-bubble.green {
+  background-color: #4caf50; 
+}
+
+.count-bubble.green:hover {
+  background-color: #388e3c;
+}
+
+.count-bubble.red {
+  background-color: #f44336; 
+  border-radius: 12px; 
+  min-width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: white;
+  margin-left: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.3s ease;
+  text-align: center;
+  padding: 0; 
+}
+
+.count-bubble.red:hover {
+  background-color: #d32f2f !important; /* darker red on hover */
+}
+
+.count-bubble.red:focus,
+.count-bubble.red:active {
+  outline: none;
+  background-color: #b71c1c; /* even darker on focus/active */
+}
