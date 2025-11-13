@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 
 import { Grid, Paper } from '@mui/material';
 import {
-  BrowserRouter, Route, Routes, useParams,
+  BrowserRouter, Route, Routes, useParams, Navigate
 } from 'react-router-dom';
 
 import './styles/main.css';
@@ -36,10 +36,15 @@ function UserPhotosRoute({ advancedFeaturesEnabled }) {
   );
 }
 
-function PhotoShare() {
+// Redirect route used when advanced features are off
+function RedirectToUserDetails() {
+  const { userId } = useParams();
+  return <Navigate to={`/users/${userId}`} replace />;
+}
 
-  // for adv. features toggle:
+function PhotoShare() {
   const [advancedFeaturesEnabled, setAdvancedFeaturesEnabled] = useState(false);
+
   return (
     <BrowserRouter>
       <div>
@@ -47,26 +52,44 @@ function PhotoShare() {
           <Grid item xs={12}>
             <TopBar
               advancedFeaturesEnabled={advancedFeaturesEnabled}
-              setAdvancedFeaturesEnabled={setAdvancedFeaturesEnabled} 
+              setAdvancedFeaturesEnabled={setAdvancedFeaturesEnabled}
             />
           </Grid>
           <div className="main-topbar-buffer" />
           <Grid item sm={3}>
             <Paper className="main-grid-item">
-              <UserList advancedFeaturesEnabled={advancedFeaturesEnabled}/>
+              <UserList advancedFeaturesEnabled={advancedFeaturesEnabled} />
             </Paper>
           </Grid>
           <Grid item sm={9}>
             <Paper className="main-grid-item">
               <Routes>
+                {/* Single user details */}
                 <Route path="/users/:userId" element={<UserDetailRoute />} />
-                <Route 
-                  path="/photos/:userId/:photoId?" 
-                  element={<UserPhotosRoute advancedFeaturesEnabled={advancedFeaturesEnabled} />} 
+
+                {/* Photos (normal + advanced mode) */}
+                <Route
+                  path="/photos/:userId/:photoId?"
+                  element={<UserPhotosRoute advancedFeaturesEnabled={advancedFeaturesEnabled} />}
                 />
-                <Route path="/users" element={<UserList advancedFeaturesEnabled={advancedFeaturesEnabled}/>} />
-                {/* new component for comments */}
-                <Route path="/comments/:userId" element={<UserComments />} />
+
+                {/* All users */}
+                <Route
+                  path="/users"
+                  element={<UserList advancedFeaturesEnabled={advancedFeaturesEnabled} />}
+                />
+
+                {/* ✅ Comments route with redirect behavior */}
+                <Route
+                  path="/comments/:userId"
+                  element={
+                    advancedFeaturesEnabled ? (
+                      <UserComments />
+                    ) : (
+                      <RedirectToUserDetails />
+                    )
+                  }
+                />
               </Routes>
             </Paper>
           </Grid>
