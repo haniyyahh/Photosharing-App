@@ -4,37 +4,29 @@ import PropTypes from 'prop-types';
 import { Typography, Button } from '@mui/material';
 import axios from "axios";
 import { Link } from 'react-router-dom';
+import { useQuery } from "@tanstack/react-query";
+import { fetchUserById } from "../../api"; // api/index.js
 
 
 import './styles.css';
 
 function UserDetail({ userId }) {
   // console.log('UserDetailRoute: userId is:', userId);
-  const [user, setUser] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // const { userId } = props;
 
-  // get user information from server
-  useEffect(() => {
-    // console.log("running [UserDetails index.jsx]...")
-    const fetchUser = async () => {
-      try {
-        // const response = await axios.get('/user/${userId}')
-        const response = await axios.get(`http://localhost:3001/user/${userId}`);
-        setUser(response.data);
-      } catch (err) {
-        console.error("Error fetching user:", err);
-        setError(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
-  }, [userId]);
+  const {
+    data: user,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["user", userId],      // unique key per user
+    queryFn: () => fetchUserById(userId),
+  });
 
   // Error handling: display messages based on the states defined above
-  if (loading) return <div>Loading information...</div>;
-  if (error) return <div>Error with loading user: {error.message}</div>;
+  if (isLoading) return <div>Loading information...</div>;
+  if (isError) return <div>Error with loading user: {error.message}</div>;
 
   /*
   Returns all information about the user, if available.

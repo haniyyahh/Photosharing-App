@@ -18,6 +18,13 @@ import UserList from './components/UserList';
 import UserPhotos from './components/UserPhotos';
 import UserComments from './components/UserComments';
 
+// tanstack imports
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+
+
+const queryClient = new QueryClient();
+
 function UserDetailRoute() {
   const { userId } = useParams();
   // eslint-disable-next-line no-console
@@ -100,4 +107,9 @@ function PhotoShare() {
 }
 
 const root = ReactDOM.createRoot(document.getElementById('photoshareapp'));
-root.render(<PhotoShare />);
+root.render(
+  <QueryClientProvider client={queryClient}>
+    <PhotoShare />
+    <ReactQueryDevtools initialIsOpen={false} />
+  </QueryClientProvider>
+);
