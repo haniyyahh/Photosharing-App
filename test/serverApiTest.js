@@ -1,6 +1,6 @@
 /* global describe, it */
 /**
- * Mocha test of Project 2 web API.  To run type
+ * Mocha test of Project 3 web API with login functionality. Run using this command:
  *   node_modules/.bin/mocha serverApiTest.js
  */
 
@@ -9,7 +9,6 @@ import http from "http";
 // eslint-disable-next-line import/no-extraneous-dependencies
 import async from "async";
 import _ from "lodash";
-import fs from "fs";
 import models from "../modelData/photoApp.js";
 
 const port = 3001;
@@ -37,26 +36,60 @@ function assertEqualDates(d1, d2) {
 
 /**
  * MongoDB automatically adds some properties to our models. We allow these to
- * appear by removing them when before checking for invalid properties.  This
- * way the models are permitted but not required to have these properties.
+ * appear by removing them when before checking for invalid properties. This way
+ * the models are permitted but not required to have these properties.
  */
 function removeMongoProperties(model) {
   return model;
 }
 
-describe("Photo App: Web API Tests", function () {
-  describe("test using model data", function () {
-    it("webServer does not use model data", function (done) {
-      fs.readFile("../webServer.js", function (err, data) {
-        if (err) throw err;
-        const regex =
-          /\n\s*const models = require\('\.\/modelData\/photoApp\.js'\)\.models;/g;
-        assert(
-          !data.toString().match(regex),
-          "webServer still contains reference to models."
-        );
-        done();
+describe(" Photo App: Server API Tests", function () {
+  let authCookie; // Session took from login request
+
+  describe("login the user took", function () {
+    it("can login took with a post to /admin/login", function (done) {
+      const postBody = JSON.stringify({ login_name: "took", password: "weak" });
+
+      const options = {
+        hostname: host,
+        port: port,
+        path: "/admin/login",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": postBody.length,
+        },
+      };
+
+      const request = http.request(options, function (response) {
+        response.on("data", function () {});
+
+        response.on("end", function () {
+          assert.strictEqual(
+            response.statusCode,
+            200,
+            "HTTP response status code not OK"
+          );
+          // If express-session middleware was enabled we should have a
+          // 'set-cookie' response header with the Express session cookie. We
+          // assume it will be the first (and only) cookie.
+          authCookie =
+            response.headers["set-cookie"] && response.headers["set-cookie"][0];
+          done();
+        });
       });
+
+      request.write(postBody);
+      request.end();
+    });
+
+    it("can retrieve the Express session cookie", function (done) {
+      assert(authCookie, "found a session cookie in the login POST response");
+      assert(
+        authCookie.match(/^connect\.sid=/),
+        "looks like an Express cookie"
+      );
+      done();
     });
   });
 
@@ -70,6 +103,7 @@ describe("Photo App: Web API Tests", function () {
           hostname: host,
           port: port,
           path: "/user/list",
+          headers: { Cookie: authCookie },
         },
         function (response) {
           let responseBody = "";
@@ -90,12 +124,18 @@ describe("Photo App: Web API Tests", function () {
       );
     });
 
-    it("is an array", function () {
+    it("is an array", function (done) {
       assert(Array.isArray(userList));
+      done();
     });
 
-    it("has the correct number elements", function () {
-      assert.strictEqual(userList.length, Users.length);
+    it("has the correct number elements", function (done) {
+      assert.strictEqual(
+        userList.length,
+        Users.length,
+        "Wrong number of users. Did you forget to run loadDatabase.js?"
+      );
+      done();
     });
 
     it("has an entry for each of the users", function (done) {
@@ -144,6 +184,7 @@ describe("Photo App: Web API Tests", function () {
           hostname: host,
           port: port,
           path: "/user/list",
+          headers: { Cookie: authCookie },
         },
         function (response) {
           let responseBody = "";
@@ -179,12 +220,14 @@ describe("Photo App: Web API Tests", function () {
               " " +
               realUser.last_name
           );
+          let userInfo;
           const id = user._id;
           http.get(
             {
               hostname: host,
               port: port,
               path: "/user/" + id,
+              headers: { Cookie: authCookie },
             },
             function (response) {
               let responseBody = "";
@@ -193,7 +236,7 @@ describe("Photo App: Web API Tests", function () {
               });
 
               response.on("end", function () {
-                const userInfo = JSON.parse(responseBody);
+                userInfo = JSON.parse(responseBody);
                 assert.strictEqual(userInfo._id, id);
                 assert.strictEqual(userInfo.first_name, realUser.first_name);
                 assert.strictEqual(userInfo.last_name, realUser.last_name);
@@ -225,6 +268,7 @@ describe("Photo App: Web API Tests", function () {
           hostname: host,
           port: port,
           path: "/user/1",
+          headers: { Cookie: authCookie },
         },
         function (response) {
           response.on("data", function () {});
@@ -252,6 +296,7 @@ describe("Photo App: Web API Tests", function () {
           hostname: host,
           port: port,
           path: "/user/list",
+          headers: { Cookie: authCookie },
         },
         function (response) {
           let responseBody = "";
@@ -295,6 +340,7 @@ describe("Photo App: Web API Tests", function () {
               hostname: host,
               port: port,
               path: "/photosOfUser/" + id,
+              headers: { Cookie: authCookie },
             },
             function (response) {
               let responseBody = "";
@@ -409,6 +455,7 @@ describe("Photo App: Web API Tests", function () {
           hostname: host,
           port: port,
           path: "/photosOfUser/1",
+          headers: { Cookie: authCookie },
         },
         function (response) {
           response.on("data", function () {});
