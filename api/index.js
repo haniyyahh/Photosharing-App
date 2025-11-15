@@ -9,6 +9,7 @@ const api = axios.create({
 // GET REQUESTS
 // -----------------------------
 
+
 // GET /user/list -> all users (id, first_name, last_name)
 export const fetchUsers = async () => {
   const res = await api.get("/user/list");
