@@ -1,4 +1,4 @@
-# Project 2: Appserver and Database (React + Vite + Axios)
+# Project 3: State, Sessions and Input (React + Vite + Axios + TanStack Query + Zustand)
 
 ## Prerequisites
 - Node.js LTS (>= 18)
@@ -6,30 +6,22 @@
 - MongoDB running locally on 127.0.0.1
 
 ## What you will do
-- Replace P1’s mock-backed app with a real backend and MongoDB
-- Load data into MongoDB
-- Use axios for all API calls
-- Run client (Vite) and server (Express) together
-- Verify with Mocha backend tests
-
-## Directory layout
-- `photoShare.jsx` React app entry (Vite)
-- `components/` React components from P1
-- `styles/` CSS
-- `schema/` Mongoose models (`user.js`, `photo.js`, `schemaInfo.js`)
-- `webServer.js` Express server using MongoDB
-- `loadDatabase.js` Script to load demo data
-- `test/` Mocha backend tests
-
-## Migration from P1
-1) Download P1 from elearning.
-2) Copy the P2 starter code on top of it.
-3) Do all steps and ensure everything works properly.
+- Refactor data fetching to use TanStack Query
+- Manage shared state with Zustand
+- Add user login/logout functionality
+- Add comment functionality
+- Add photo upload functionality
+- Add user registration with passwords
 
 ## Install
 ```bash
 npm install
+npm i @tanstack/react-query
+npm i zustand
+npm install express-session
+npm install multer
 ```
+
 If you need to install test deps:
 ```bash
 cd test && npm install && cd ..
@@ -41,12 +33,9 @@ cd test && npm install && cd ..
 ```bash
 node loadDatabase.js
 ```
-This clears and reloads `User`, `Photo`, and a single `SchemaInfo` document.
+This clears and reloads `User`, `Photo`, and a single `SchemaInfo` document into the `project3` database.
 
-## Verifying the Database in MongoDB
-1) Open your Terminal or MongoDB Compass.
-2) If using MongoDB Compass, create a new connection, save it, and connect.
-3) Look for the `project2` database and verify that all required data is present.
+**Note:** Make sure your `webServer.js` connects to `mongodb://127.0.0.1/project3`.
 
 ## Run client + server together
 ```bash
@@ -62,19 +51,23 @@ npm run client   # vite (port 3000)
 ```
 
 ## API endpoints
-- `GET /test/info` → returns the single SchemaInfo document
-- `GET /test/counts` → { user, photo, schemaInfo }
-- `GET /user/list` → [{ _id, first_name, last_name }]
-- `GET /user/:id` → user detail { _id, first_name, last_name, location, description, occupation }
-- `GET /photosOfUser/:id` → user’s photos with comments
+- `POST /admin/login` → login user (requires login_name, password)
+- `POST /admin/logout` → logout user
+- `GET /user/list` → [{ _id, first_name, last_name }] (requires auth)
+- `GET /user/:id` → user detail { _id, first_name, last_name, location, description, occupation } (requires auth)
+- `GET /photosOfUser/:id` → user's photos with comments (requires auth)
+- `POST /commentsOfPhoto/:photo_id` → add comment to photo (requires auth, body: { comment })
+- `POST /photos/new` → upload photo (requires auth, multipart form data)
+- `POST /user` → register new user (body: { login_name, password, first_name, last_name, location, description, occupation })
 
 ## Testing (backend)
-From `P2_Starter_Code/test`:
+From `test` directory:
 ```bash
 npm install   # if not already
 npm test
 ```
-The tests target port 3001 and validate `/user/list`, `/user/:id`, `/photosOfUser/:id`.
+
+**Important:** Run `loadDatabase.js` before running tests, as tests assume the database has only the objects from `loadDatabase.js`.
 
 ## Linting
 ```bash
@@ -88,4 +81,6 @@ npm run lint:fix
 ## Common issues
 - Mongo not running → start MongoDB before `loadDatabase.js` and `npm run server`.
 - Port conflicts → Vite uses 3000, server uses 3001. Adjust if needed.
-- CORS not needed when using same origin via proxy/baseURL; we set axios baseURL to point at 3001.
+- Database name → make sure `webServer.js` connects to `project3` database (not `project2`).
+- Session cookies → tests require proper session cookie handling with express-session.
+- File uploads → ensure `images` directory exists for photo uploads.
