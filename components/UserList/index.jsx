@@ -11,12 +11,20 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { fetchUsers, fetchPhotosByUser } from "../../api";
 
+import useZustandStore from "../../zustandStore";
 import "./styles.css";
 
-function UserList({ advancedFeaturesEnabled }) {
+function UserList() {
   const navigate = useNavigate();
 
-  // 1. Fetch all users
+  // Zustand global store
+  const advancedFeaturesEnabled = useZustandStore(
+    (s) => s.advancedFeaturesEnabled
+  );
+  const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
+  const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
+
+  // 1. Fetch users
   const {
     data: users,
     isLoading: usersLoading,
@@ -37,41 +45,39 @@ function UserList({ advancedFeaturesEnabled }) {
       })) || [],
   });
 
-  // Loading and error states
+  // Loading states
   if (usersLoading) return <div>Loading users...</div>;
-  if (usersError) return <div>Error loading users: {usersErrorObj.message}</div>;
+  if (usersError)
+    return <div>Error loading users: {usersErrorObj.message}</div>;
 
   const anyPhotosLoading = photosQueries.some((q) => q.isLoading);
   if (anyPhotosLoading) return <div>Loading photos...</div>;
 
-  // 3. Compose users with photo counts and photos
+  // 3. Combine users + photo counts
   const usersWithCounts = users.map((user, idx) => {
     const photos = photosQueries[idx]?.data || [];
     return { ...user, photoCount: photos.length, photos };
   });
 
-  // 4. Aggregate all comments from all photos of all users
+  // 4. Collect all comments from all photos
   const allComments = usersWithCounts.flatMap((user) =>
     user.photos.flatMap((photo) => photo.comments || [])
   );
 
-  // 5. Count comments per user (who made the comment)
+  // 5. Count comments per user (comment authors)
   const commentCountMap = allComments.reduce((acc, comment) => {
-    const commentUserId = comment.user?._id;
-    if (!commentUserId) return acc;
-    acc[commentUserId] = (acc[commentUserId] || 0) + 1;
+    const uid = comment.user?._id;
+    if (!uid) return acc;
+    acc[uid] = (acc[uid] || 0) + 1;
     return acc;
   }, {});
 
-  // 6. Final users array with comment counts and cleaned photos array
+  // 6. Final array sent to render
   const finalUsers = usersWithCounts.map((user) => ({
     ...user,
     commentCount: commentCountMap[user._id] || 0,
     photos: undefined,
   }));
-
-  console.log(finalUsers);
-  console.log("advancedFeaturesEnabled:", advancedFeaturesEnabled);
 
   return (
     <List component="nav">
@@ -81,6 +87,7 @@ function UserList({ advancedFeaturesEnabled }) {
             secondaryAction={
               advancedFeaturesEnabled && (
                 <>
+                  {/* Bubble for number of photos */}
                   <span
                     className="count-bubble green"
                     title="Number of photos"
@@ -88,11 +95,15 @@ function UserList({ advancedFeaturesEnabled }) {
                   >
                     {user.photoCount}
                   </span>
+
+                  {/* Bubble for number of comments */}
                   <button
                     className="count-bubble red"
                     title="Number of comments"
                     onClick={(e) => {
                       e.stopPropagation();
+                      setSelectedUserId(user._id);
+                      setSelectedPhotoId(null);
                       navigate(`/comments/${user._id}`);
                     }}
                     style={{
@@ -112,8 +123,18 @@ function UserList({ advancedFeaturesEnabled }) {
             }
             disablePadding
           >
-            <ListItemButton component={Link} to={`/users/${user._id}`}>
-              <ListItemText primary={`${user.first_name} ${user.last_name}`} />
+            {/* Clicking user selects in Zustand and routes */}
+            <ListItemButton
+              component={Link}
+              to={`/users/${user._id}`}
+              onClick={() => {
+                setSelectedUserId(user._id);
+                setSelectedPhotoId(null);
+              }}
+            >
+              <ListItemText
+                primary={`${user.first_name} ${user.last_name}`}
+              />
             </ListItemButton>
           </ListItem>
 

@@ -1,14 +1,22 @@
-import React from 'react';
-import PropTypes from 'prop-types';
+import React, { useState, useEffect } from 'react';
 import { AppBar, Toolbar, Typography, FormControlLabel, Switch } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import './styles.css';
 
-function TopBar({ advancedFeaturesEnabled, setAdvancedFeaturesEnabled }) {
+// NEW: import zustand store
+import useZustandStore from "../../zustandStore";
+
+function TopBar() {
+
   const location = useLocation();
 
+  // NEW: get global state instead of props
+  const advancedFeaturesEnabled = useZustandStore((s) => s.advancedFeaturesEnabled);
+  const setAdvancedFeaturesEnabled = useZustandStore((s) => s.setAdvancedFeaturesEnabled);
+
+  // extract userId from the relative URL using useLocation()
   // Extract userId from the relative URL
   let userId = null;
   if (location.pathname.startsWith('/users/')) {
@@ -71,10 +79,5 @@ const { data: userData, isLoading, isError } = useQuery({
     </AppBar>
   );
 }
-
-TopBar.propTypes = {
-  advancedFeaturesEnabled: PropTypes.bool.isRequired,
-  setAdvancedFeaturesEnabled: PropTypes.func.isRequired,
-};
 
 export default TopBar;
