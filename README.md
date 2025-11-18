@@ -1,5 +1,9 @@
 # Project 3: State, Sessions and Input (React + Vite + Axios + TanStack Query + Zustand)
 
+## TODO:
+Part 1:
+- All POST/PUT/DELETE requests using useMutation
+
 ## Prerequisites
 - Node.js LTS (>= 18)
 - npm (>= 9)

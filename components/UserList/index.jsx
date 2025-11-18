@@ -1,128 +1,119 @@
-import React, { useState, useEffect } from 'react';
+import React from "react";
 import {
   Divider,
   List,
   ListItem,
   ListItemText,
   ListItemButton,
-} from '@mui/material';
+} from "@mui/material";
 
-import axios from "axios";
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from "react-router-dom";
+import { useQuery, useQueries } from "@tanstack/react-query";
+import { fetchUsers, fetchPhotosByUser } from "../../api";
 
-import './styles.css';
-
-// NEW: import Zustand store
-import useZustandStore from '../../zustandStore';
+import useZustandStore from "../../zustandStore";
+import "./styles.css";
 
 function UserList() {
-  const [users, setUsers] = useState([]);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // NEW: advanced mode from global store
-  const advancedFeaturesEnabled = useZustandStore((s) => s.advancedFeaturesEnabled);
-
-  // NEW: global selected-user setter
+  // Zustand global store
+  const advancedFeaturesEnabled = useZustandStore(
+    (s) => s.advancedFeaturesEnabled
+  );
   const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
   const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const usersRes = await axios.get('http://localhost:3001/user/list');
-        const fetchedUsers = usersRes.data;
+  // 1. Fetch users
+  const {
+    data: users,
+    isLoading: usersLoading,
+    isError: usersError,
+    error: usersErrorObj,
+  } = useQuery({
+    queryKey: ["users"],
+    queryFn: fetchUsers,
+  });
 
-        // for each user, fetch their photos and count them
-        const usersWithCounts = await Promise.all(
-          fetchedUsers.map(async (user) => {
-            try {
-              const photosRes = await axios.get(
-                `http://localhost:3001/photosOfUser/${user._id}`
-              );
-              const photos = photosRes.data;
+  // 2. Fetch photos for each user in parallel
+  const photosQueries = useQueries({
+    queries:
+      users?.map((user) => ({
+        queryKey: ["photosOfUser", user._id],
+        queryFn: () => fetchPhotosByUser(user._id),
+        enabled: !!users,
+      })) || [],
+  });
 
-              return { ...user, photoCount: photos.length, photos };
-            } catch {
-              return { ...user, photoCount: 0, photos: [] };
-            }
-          })
-        );
+  // Loading states
+  if (usersLoading) return <div>Loading users...</div>;
+  if (usersError)
+    return <div>Error loading users: {usersErrorObj.message}</div>;
 
-        // count comments across all users
-        const allComments = usersWithCounts.flatMap((user) =>
-          user.photos.flatMap((photo) => photo.comments || [])
-        );
+  const anyPhotosLoading = photosQueries.some((q) => q.isLoading);
+  if (anyPhotosLoading) return <div>Loading photos...</div>;
 
-        const commentCountMap = allComments.reduce((acc, comment) => {
-          const uid = comment.user?._id;
-          if (!uid) return acc;
-          acc[uid] = (acc[uid] || 0) + 1;
-          return acc;
-        }, {});
+  // 3. Combine users + photo counts
+  const usersWithCounts = users.map((user, idx) => {
+    const photos = photosQueries[idx]?.data || [];
+    return { ...user, photoCount: photos.length, photos };
+  });
 
-        const finalUsers = usersWithCounts.map((user) => ({
-          ...user,
-          commentCount: commentCountMap[user._id] || 0,
-          photos: undefined,
-        }));
+  // 4. Collect all comments from all photos
+  const allComments = usersWithCounts.flatMap((user) =>
+    user.photos.flatMap((photo) => photo.comments || [])
+  );
 
-        setUsers(finalUsers);
-      } catch (err) {
-        setError(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // 5. Count comments per user (comment authors)
+  const commentCountMap = allComments.reduce((acc, comment) => {
+    const uid = comment.user?._id;
+    if (!uid) return acc;
+    acc[uid] = (acc[uid] || 0) + 1;
+    return acc;
+  }, {});
 
-    fetchData();
-  }, []); // only run once at instantiation of the component
+  // 6. Final array sent to render
+  const finalUsers = usersWithCounts.map((user) => ({
+    ...user,
+    commentCount: commentCountMap[user._id] || 0,
+    photos: undefined,
+  }));
 
-  if (loading) return <div>Loading information...</div>;
-  if (error) return <div>Error with loading user: {error.message}</div>;
-
-  console.log(users);
-  console.log('advancedFeaturesEnabled:', advancedFeaturesEnabled);
-
-  // returns now count bubbles for comments and # of photos 
-  // per user when adv. feature is toggled
   return (
     <List component="nav">
-      {users.map((user, index) => (
+      {finalUsers.map((user, index) => (
         <React.Fragment key={user._id}>
           <ListItem
             secondaryAction={
               advancedFeaturesEnabled && (
                 <>
+                  {/* Bubble for number of photos */}
                   <span
                     className="count-bubble green"
                     title="Number of photos"
-                    style={{ marginRight: '8px' }}
+                    style={{ marginRight: "8px" }}
                   >
                     {user.photoCount}
                   </span>
 
+                  {/* Bubble for number of comments */}
                   <button
                     className="count-bubble red"
                     title="Number of comments"
                     onClick={(e) => {
                       e.stopPropagation();
-
-                      // NEW: sync global state
                       setSelectedUserId(user._id);
                       setSelectedPhotoId(null);
-
                       navigate(`/comments/${user._id}`);
                     }}
                     style={{
-                      cursor: 'pointer',
-                      border: 'none',
-                      background: 'red',
-                      color: 'white',
-                      borderRadius: '50%',
-                      padding: '4px 8px',
-                      minWidth: '20px',
+                      cursor: "pointer",
+                      border: "none",
+                      background: "red",
+                      color: "white",
+                      borderRadius: "50%",
+                      padding: "4px 8px",
+                      minWidth: "20px",
                     }}
                   >
                     {user.commentCount}
@@ -132,22 +123,22 @@ function UserList() {
             }
             disablePadding
           >
-            {/* default links to user pages */}
+            {/* Clicking user selects in Zustand and routes */}
             <ListItemButton
               component={Link}
               to={`/users/${user._id}`}
               onClick={() => {
-                // NEW: sync global state when selecting a user
                 setSelectedUserId(user._id);
                 setSelectedPhotoId(null);
               }}
             >
-              <ListItemText primary={`${user.first_name} ${user.last_name}`} />
+              <ListItemText
+                primary={`${user.first_name} ${user.last_name}`}
+              />
             </ListItemButton>
           </ListItem>
 
-          {/* add a divider after all user names except last */}
-          {index < users.length - 1 && <Divider component="li" />}
+          {index < finalUsers.length - 1 && <Divider component="li" />}
         </React.Fragment>
       ))}
     </List>

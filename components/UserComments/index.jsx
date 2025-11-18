@@ -8,7 +8,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useQuery } from '@tanstack/react-query';
+import { fetchUserComments } from '../../api';
 
 // NEW: Zustand store import
 import useZustandStore from '../../zustandStore';

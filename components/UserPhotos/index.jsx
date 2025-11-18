@@ -1,56 +1,74 @@
-import React, { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
-import { Typography, Grid, Card, CardMedia, Box, Button } from '@mui/material';
-import axios from "axios";
+import React, { useState, useEffect } from "react";
+import PropTypes from "prop-types";
 import {
-  NavigateBefore,
-  NavigateNext
-} from '@mui/icons-material';
-import { Link, useNavigate } from 'react-router-dom';
+  Typography,
+  Grid,
+  Card,
+  CardMedia,
+  Box,
+  Button,
+} from "@mui/material";
+import { NavigateBefore, NavigateNext } from "@mui/icons-material";
+import { Link, useNavigate } from "react-router-dom";
+
+import { useQuery } from "@tanstack/react-query";
+import { fetchPhotosByUser } from "../../api";
 
 import useZustandStore from "../../zustandStore";
-import './styles.css';
+import "./styles.css";
 
 function UserPhotos({ userId, photoId = null }) {
   const navigate = useNavigate();
 
-  // pull global state from Zustand
-  const advancedFeaturesEnabled = useZustandStore(s => s.advancedFeaturesEnabled);
+  // Zustand global state
+  const advancedFeaturesEnabled = useZustandStore(
+    (s) => s.advancedFeaturesEnabled
+  );
+  const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
+  const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
 
-  const [userPhotos, setUserPhotos] = useState([]);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const initialized = React.useRef(false);
 
+  // React Query fetch
+  const {
+    data: userPhotos = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["photosOfUser", userId],
+    queryFn: () => fetchPhotosByUser(userId),
+    enabled: !!userId,
+  });
+
+  // Initialize index when photos load + photoId provided
   useEffect(() => {
-    const fetchPhotos = async () => {
-      try {
-        const response = await axios.get(`http://localhost:3001/photosOfUser/${userId}`);
-        setUserPhotos(response.data);
+    if (!initialized.current && photoId && userPhotos.length > 0) {
+      const idx = userPhotos.findIndex((p) => p._id === photoId);
+      if (idx !== -1) setCurrentPhotoIndex(idx);
+      initialized.current = true;
+    }
+  }, [photoId, userPhotos]);
 
-        if (photoId && response.data) {
-          const index = response.data.findIndex(p => p._id === photoId);
-          if (index !== -1) setCurrentPhotoIndex(index);
-        }
-      } catch (err) {
-        console.error("Error fetching user:", err);
-        setError(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPhotos();
-  }, [userId, photoId]);
-
+  // Sync URL to reflect current photo (only in advanced mode)
   useEffect(() => {
     if (advancedFeaturesEnabled && userPhotos.length > 0) {
       const currentPhoto = userPhotos[currentPhotoIndex];
       if (currentPhoto) {
-        navigate(`/photos/${userId}/${currentPhoto._id}`, { replace: true });
+        const newUrl = `/photos/${userId}/${currentPhoto._id}`;
+        if (window.location.pathname !== newUrl) {
+          navigate(newUrl, { replace: true });
+        }
       }
     }
-  }, [currentPhotoIndex, advancedFeaturesEnabled, userPhotos, userId, navigate]);
+  }, [
+    currentPhotoIndex,
+    advancedFeaturesEnabled,
+    userPhotos,
+    userId,
+    navigate,
+  ]);
 
   const handlePrevious = () => {
     if (currentPhotoIndex > 0) {
@@ -64,21 +82,29 @@ function UserPhotos({ userId, photoId = null }) {
     }
   };
 
-  if (loading) return <div>Loading information...</div>;
-  if (error) return <div>Error with loading user: {error.message}</div>;
+  // Loading & error states
+  if (isLoading) return <div>Loading photos...</div>;
+  if (isError) return <div>Error loading photos: {error.message}</div>;
 
-  // 🔥 ADVANCED MODE
+  // advanced mode
   if (advancedFeaturesEnabled) {
     const photo = userPhotos[currentPhotoIndex];
 
     return (
-      <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
-        <Box 
+      <Box
+        sx={{
+          width: "100%",
+          maxWidth: "100%",
+          overflow: "hidden",
+          boxSizing: "border-box",
+        }}
+      >
+        <Box
           display="flex"
           justifyContent="space-between"
           alignItems="center"
           mb={2}
-          sx={{ backgroundColor: '#f5f5f5', padding: 2, borderRadius: 1 }}
+          sx={{ backgroundColor: "#f5f5f5", padding: 2, borderRadius: 1 }}
         >
           <Button
             variant="contained"
@@ -103,17 +129,19 @@ function UserPhotos({ userId, photoId = null }) {
           </Button>
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', px: 1 }}>
-          <Card sx={{ maxWidth: '900px', width: '100%' }}>
+        <Box
+          sx={{ display: "flex", justifyContent: "center", width: "100%", px: 1 }}
+        >
+          <Card sx={{ maxWidth: "900px", width: "100%" }}>
             <CardMedia
               component="img"
               image={`/images/${photo.file_name}`}
               alt={`Photo ${photo._id}`}
               sx={{
-                width: '100%',
-                height: 'auto',
-                maxHeight: '600px',
-                objectFit: 'contain'
+                width: "100%",
+                height: "auto",
+                maxHeight: "600px",
+                objectFit: "contain",
               }}
             />
 
@@ -122,7 +150,7 @@ function UserPhotos({ userId, photoId = null }) {
                 Taken: {new Date(photo.date_time).toLocaleString()}
               </Typography>
 
-              <Typography variant="h6" sx={{ marginTop: 2, marginBottom: 1 }}>
+              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                 Comments:
               </Typography>
 
@@ -131,22 +159,28 @@ function UserPhotos({ userId, photoId = null }) {
                   <Box
                     key={c._id}
                     sx={{
-                      marginTop: 1.5,
-                      padding: 1.5,
+                      mt: 1.5,
+                      p: 1.5,
                       backgroundColor: "#f9f9f9",
                       borderRadius: 1,
-                      wordWrap: 'break-word'
+                      wordWrap: "break-word",
                     }}
                   >
                     <Typography variant="body2">
                       <Link
                         to={`/users/${c.user._id}`}
-                        style={{ textDecoration: 'none', color: '#1976d2' }}
+                        style={{
+                          textDecoration: "none",
+                          color: "#1976d2",
+                        }}
                       >
-                        <strong>{c.user.first_name} {c.user.last_name}</strong>
+                        <strong>
+                          {c.user.first_name} {c.user.last_name}
+                        </strong>
                       </Link>
                       : {c.comment}
                     </Typography>
+
                     <Typography variant="caption" color="textSecondary">
                       {new Date(c.date_time).toLocaleString()}
                     </Typography>
@@ -160,12 +194,11 @@ function UserPhotos({ userId, photoId = null }) {
             </Box>
           </Card>
         </Box>
-
       </Box>
     );
   }
 
-  // default mode
+  // default grid mode
   return (
     <Grid container spacing={2}>
       {userPhotos.map((photo) => (
@@ -176,6 +209,7 @@ function UserPhotos({ userId, photoId = null }) {
               image={`/images/${photo.file_name}`}
               alt={`Photo ${photo._id}`}
             />
+
             <div style={{ padding: "8px" }}>
               <Typography variant="body2" color="textSecondary">
                 Taken: {new Date(photo.date_time).toLocaleString()}
@@ -187,13 +221,14 @@ function UserPhotos({ userId, photoId = null }) {
                     <Typography variant="body2">
                       <Link
                         to={`/users/${c.user._id}`}
-                        style={{ textDecoration: 'none', color: '#1976d2' }}
+                        style={{ textDecoration: "none", color: "#1976d2" }}
                       >
-                        <strong>{c.user.first_name} {c.user.last_name}</strong>
+                        <strong>
+                          {c.user.first_name} {c.user.last_name}
+                        </strong>
                       </Link>
                       : {c.comment}
                     </Typography>
-
                     <Typography variant="caption" color="textSecondary">
                       {new Date(c.date_time).toLocaleString()}
                     </Typography>
@@ -214,8 +249,7 @@ function UserPhotos({ userId, photoId = null }) {
 
 UserPhotos.propTypes = {
   userId: PropTypes.string.isRequired,
-  photoId: PropTypes.string
+  photoId: PropTypes.string,
 };
-
 
 export default UserPhotos;

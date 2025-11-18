@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AppBar, Toolbar, Typography, FormControlLabel, Switch } from '@mui/material';
 import { useLocation } from 'react-router-dom';
-import axios from "axios";
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import './styles.css';
 
 // NEW: import zustand store
@@ -10,57 +11,50 @@ import useZustandStore from "../../zustandStore";
 function TopBar() {
 
   const location = useLocation();
-  const [userName, setUserName] = useState('');
 
   // NEW: get global state instead of props
   const advancedFeaturesEnabled = useZustandStore((s) => s.advancedFeaturesEnabled);
   const setAdvancedFeaturesEnabled = useZustandStore((s) => s.setAdvancedFeaturesEnabled);
 
   // extract userId from the relative URL using useLocation()
+  // Extract userId from the relative URL
   let userId = null;
   if (location.pathname.startsWith('/users/')) {
     userId = location.pathname.split('/users/')[1];
   } else if (location.pathname.startsWith('/photos/')) {
-    // when photoId migth be in the URL
     const parts = location.pathname.split('/photos/')[1];
     userId = parts ? parts.split('/')[0] : null;
   }
 
   const isPhotosView = location.pathname.includes('/photos/');
-  // console.log("The userID is: " + userId)
 
-  // call the user data from server
-  useEffect(() => {
-    if (userId) {
-      axios
-        .get(`http://localhost:3001/user/${userId}`)
-        .then((res) => {
-          setUserName(`${res.data.first_name} ${res.data.last_name}`);
-        })
-        .catch((err) => {
-          console.error('Error fetching user in TopBar:', err);
-          setUserName('User'); // placeholder name
-        });
-    } else {
-      setUserName(''); // no user selected
-    }
-  }, [userId]);
+  // Fetch user data with React Query
+const { data: userData, isLoading, isError } = useQuery({
+    queryKey: ['user', userId],
+    queryFn: () => axios.get(`http://localhost:3001/user/${userId}`).then(res => res.data),
+    enabled: !!userId,
+  });
 
-  /*
-  Returns my name on the left, middle is the user information
-  Right is Adv Features toggle switch
-  */
+  // Compute display name
+  let userName = '';
+  if (isLoading) {
+    userName = 'Loading...';
+  } else if (isError) {
+    userName = 'User';
+  } else if (userData) {
+    userName = `${userData.first_name} ${userData.last_name}`;
+  }
+
   return (
     <AppBar className="topbar-appBar" position="absolute">
       <Toolbar style={{ display: "flex", justifyContent: "space-between" }}>
         <Typography variant="h5" color="inherit">
-          Haniyyah Hamid
+          Haniyyah Hamid & Clowie G
         </Typography>
         <Typography variant="h5" color="inherit">
           {userName ? (isPhotosView ? `Photos of ${userName}` : userName) : "PhotoShare App"}
         </Typography>
-        {/* when advancedFeaturesEnabled = true */}
-         <FormControlLabel
+        <FormControlLabel
           control={(
             <Switch
               checked={advancedFeaturesEnabled}
