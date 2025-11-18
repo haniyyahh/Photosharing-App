@@ -10,9 +10,16 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+// NEW: Zustand store import
+import useZustandStore from '../../zustandStore';
+
 function UserComments() {
   const { userId } = useParams();
   const navigate = useNavigate();
+
+  // NEW: pull global setters to keep UI state consistent
+  const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
+  const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
 
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,14 +33,14 @@ function UserComments() {
         const photosRes = await axios.get(`http://localhost:3001/photosOfUser/${userId}`);
         const photos = photosRes.data;
 
-        // extract all comments authored by userId (the user who made the comment)
+        // extract all comments authored by userId
         const userComments = [];
 
         photos.forEach(photo => {
           if (photo.comments) {
             photo.comments.forEach(comment => {
               if (comment.user && comment.user._id === userId) {
-                // add photo info to comment for display/navigation
+                // include photo metadata for UI navigation
                 userComments.push({
                   ...comment,
                   photoId: photo._id,
@@ -65,34 +72,29 @@ function UserComments() {
 
   return (
     <List>
-        {/* display all comments as a list: include 
-        - photo thumbnail
-        - comment's text
-        
-        */}
       {comments.map((comment) => (
         <ListItem
           key={comment._id}
           button
-          onClick={() => navigate(`/photos/${comment.photoUserId}/${comment.photoId}`)}
+          onClick={() => {
+            // NEW: sync state to global store
+            setSelectedUserId(comment.photoUserId);
+            setSelectedPhotoId(comment.photoId);
+
+            // Navigate to the correct photo page
+            navigate(`/photos/${comment.photoUserId}/${comment.photoId}`);
+          }}
           alignItems="flex-start"
         >
           <ListItemAvatar>
             <Avatar
               variant="rounded"
-              src={`http://localhost:3001/images/${comment.photoUrl}`} // adjust path to your static files
+              src={`http://localhost:3001/images/${comment.photoUrl}`}
               alt="Photo thumbnail"
               sx={{ width: 80, height: 80, marginRight: 2 }}
             />
           </ListItemAvatar>
-          <ListItemText
-            primary={comment.comment}
-            // secondary={
-            //   <Typography variant="caption" color="text.secondary">
-            //     Posted on photo ID: {comment.photoId}
-            //   </Typography>
-            // }
-          />
+          <ListItemText primary={comment.comment} />
         </ListItem>
       ))}
     </List>

@@ -3,23 +3,35 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Typography, Button } from '@mui/material';
 import axios from "axios";
-import { Link } from 'react-router-dom';
-
+import { Link, useParams } from 'react-router-dom';
 
 import './styles.css';
 
-function UserDetail({ userId }) {
-  // console.log('UserDetailRoute: userId is:', userId);
+// NEW: import Zustand store
+import useZustandStore from '../../zustandStore';
+
+function UserDetail() {
+  // NEW: read userId from the route instead of props
+  const { userId } = useParams();
+
+  // NEW: Zustand setter to sync global state
+  const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
+
   const [user, setUser] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // sync Zustand-selected user whenever URL changes
+  useEffect(() => {
+    if (userId) {
+      setSelectedUserId(userId);
+    }
+  }, [userId, setSelectedUserId]);
+
   // get user information from server
   useEffect(() => {
-    // console.log("running [UserDetails index.jsx]...")
     const fetchUser = async () => {
       try {
-        // const response = await axios.get('/user/${userId}')
         const response = await axios.get(`http://localhost:3001/user/${userId}`);
         setUser(response.data);
       } catch (err) {
@@ -66,8 +78,9 @@ function UserDetail({ userId }) {
   );
 }
 
+// PropTypes no longer needed since we removed props, but keeping for compatibility
 UserDetail.propTypes = {
-  userId: PropTypes.string.isRequired,
+  userId: PropTypes.string,
 };
 
 export default UserDetail;

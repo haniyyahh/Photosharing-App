@@ -12,11 +12,21 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import './styles.css';
 
-function UserList({ advancedFeaturesEnabled }) {
+// NEW: import Zustand store
+import useZustandStore from '../../zustandStore';
+
+function UserList() {
   const [users, setUsers] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // NEW: advanced mode from global store
+  const advancedFeaturesEnabled = useZustandStore((s) => s.advancedFeaturesEnabled);
+
+  // NEW: global selected-user setter
+  const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
+  const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,32 +35,34 @@ function UserList({ advancedFeaturesEnabled }) {
         const fetchedUsers = usersRes.data;
 
         // for each user, fetch their photos and count them
-        const usersWithCounts = await Promise.all(fetchedUsers.map(async (user) => {
-          try {
-            // fetch all photos for this user
-            const photosRes = await axios.get(`http://localhost:3001/photosOfUser/${user._id}`);
-            const photos = photosRes.data;
-            // keep a count
-            return { ...user, photoCount: photos.length, photos };
-          } catch {
-            // set to 0 if fails
-            return { ...user, photoCount: 0, photos: [] };
-          }
-        }));
-        // get comment counts for each users
-        const allComments = usersWithCounts.flatMap(user => user.photos.flatMap(photo => photo.comments || [])
+        const usersWithCounts = await Promise.all(
+          fetchedUsers.map(async (user) => {
+            try {
+              const photosRes = await axios.get(
+                `http://localhost:3001/photosOfUser/${user._id}`
+              );
+              const photos = photosRes.data;
+
+              return { ...user, photoCount: photos.length, photos };
+            } catch {
+              return { ...user, photoCount: 0, photos: [] };
+            }
+          })
         );
 
-        // get a count of how many comments each individual user made
+        // count comments across all users
+        const allComments = usersWithCounts.flatMap((user) =>
+          user.photos.flatMap((photo) => photo.comments || [])
+        );
+
         const commentCountMap = allComments.reduce((acc, comment) => {
-          const userId = comment.user?._id;
-          if (!userId) return acc;
-          acc[userId] = (acc[userId] || 0) + 1;
+          const uid = comment.user?._id;
+          if (!uid) return acc;
+          acc[uid] = (acc[uid] || 0) + 1;
           return acc;
         }, {});
 
-        // store final counts of photos and comments in one list
-        const finalUsers = usersWithCounts.map(user => ({
+        const finalUsers = usersWithCounts.map((user) => ({
           ...user,
           commentCount: commentCountMap[user._id] || 0,
           photos: undefined,
@@ -69,42 +81,67 @@ function UserList({ advancedFeaturesEnabled }) {
 
   if (loading) return <div>Loading information...</div>;
   if (error) return <div>Error with loading user: {error.message}</div>;
-console.log(users);
-console.log('advancedFeaturesEnabled:', advancedFeaturesEnabled);
 
-// returns now count bubbles for comments and # of photos 
-// per user when adv. feature is toggled
+  console.log(users);
+  console.log('advancedFeaturesEnabled:', advancedFeaturesEnabled);
+
+  // returns now count bubbles for comments and # of photos 
+  // per user when adv. feature is toggled
   return (
     <List component="nav">
       {users.map((user, index) => (
         <React.Fragment key={user._id}>
           <ListItem
-            secondaryAction={advancedFeaturesEnabled && (
-              <>
-                <span // no navigation on this bubble
-                  className="count-bubble green"
-                  title="Number of photos"
-                  style={{ marginRight: '8px' }}
-                >
-                  {user.photoCount}
-                </span>
-                <button
-                  className="count-bubble red"
-                  title="Number of comments"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/comments/${user._id}`);
-                  }}
-                  style={{ cursor: 'pointer', border: 'none', background: 'red', color: 'white', borderRadius: '50%', padding: '4px 8px', minWidth: '20px' }}
-                >
-                  {user.commentCount}
-                </button>
-              </>
-            )}
+            secondaryAction={
+              advancedFeaturesEnabled && (
+                <>
+                  <span
+                    className="count-bubble green"
+                    title="Number of photos"
+                    style={{ marginRight: '8px' }}
+                  >
+                    {user.photoCount}
+                  </span>
+
+                  <button
+                    className="count-bubble red"
+                    title="Number of comments"
+                    onClick={(e) => {
+                      e.stopPropagation();
+
+                      // NEW: sync global state
+                      setSelectedUserId(user._id);
+                      setSelectedPhotoId(null);
+
+                      navigate(`/comments/${user._id}`);
+                    }}
+                    style={{
+                      cursor: 'pointer',
+                      border: 'none',
+                      background: 'red',
+                      color: 'white',
+                      borderRadius: '50%',
+                      padding: '4px 8px',
+                      minWidth: '20px',
+                    }}
+                  >
+                    {user.commentCount}
+                  </button>
+                </>
+              )
+            }
             disablePadding
           >
             {/* default links to user pages */}
-            <ListItemButton component={Link} to={`/users/${user._id}`}>
+            <ListItemButton
+              component={Link}
+              to={`/users/${user._id}`}
+              onClick={() => {
+                // NEW: sync global state when selecting a user
+                setSelectedUserId(user._id);
+                setSelectedPhotoId(null);
+              }}
+            >
               <ListItemText primary={`${user.first_name} ${user.last_name}`} />
             </ListItemButton>
           </ListItem>

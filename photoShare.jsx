@@ -1,7 +1,7 @@
 // import React from 'react';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import ReactDOM from 'react-dom/client';
-import React, { useState } from 'react';
+import React, { } from 'react';
 
 import { Grid, Paper } from '@mui/material';
 import {
@@ -18,6 +18,9 @@ import UserList from './components/UserList';
 import UserPhotos from './components/UserPhotos';
 import UserComments from './components/UserComments';
 
+// NEW: import zustand store
+import useZustandStore from "./zustandStore";
+
 function UserDetailRoute() {
   const { userId } = useParams();
   // eslint-disable-next-line no-console
@@ -25,8 +28,10 @@ function UserDetailRoute() {
   return <UserDetail userId={userId} />;
 }
 
-function UserPhotosRoute({ advancedFeaturesEnabled }) {
+function UserPhotosRoute() {
   const { userId, photoId } = useParams();
+  const advancedFeaturesEnabled = useZustandStore((s) => s.advancedFeaturesEnabled);
+
   return (
     <UserPhotos 
       userId={userId} 
@@ -43,7 +48,12 @@ function RedirectToUserDetails() {
 }
 
 function PhotoShare() {
-  const [advancedFeaturesEnabled, setAdvancedFeaturesEnabled] = useState(false);
+  // REMOVED:
+  // const [advancedFeaturesEnabled, setAdvancedFeaturesEnabled] = useState(false);
+
+  // REPLACED WITH ZUSTAND:
+  const advancedFeaturesEnabled = useZustandStore((s) => s.advancedFeaturesEnabled);
+  const setAdvancedFeaturesEnabled = useZustandStore((s) => s.setAdvancedFeaturesEnabled);
 
   return (
     <BrowserRouter>
@@ -70,7 +80,7 @@ function PhotoShare() {
                 {/* Photos (normal + advanced mode) */}
                 <Route
                   path="/photos/:userId/:photoId?"
-                  element={<UserPhotosRoute advancedFeaturesEnabled={advancedFeaturesEnabled} />}
+                  element={<UserPhotosRoute />}
                 />
 
                 {/* All users */}
@@ -79,7 +89,7 @@ function PhotoShare() {
                   element={<UserList advancedFeaturesEnabled={advancedFeaturesEnabled} />}
                 />
 
-                {/* ✅ Comments route with redirect behavior */}
+                {/* Comments route with redirect behavior */}
                 <Route
                   path="/comments/:userId"
                   element={
