@@ -10,6 +10,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchUserComments } from '../../api';
+import axios from "axios";
 
 // NEW: Zustand store import
 import useZustandStore from '../../zustandStore';
