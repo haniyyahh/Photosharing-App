@@ -57,7 +57,17 @@ export async function fetchUserComments(userId) {
 // POST / PUT / DELETE REQUESTS
 // 
 // -----------------------------
+// POST /admin/login -> login user
+export const loginUser = async (loginName) => {
+  const res = await api.post('/admin/login', { login_name: loginName });
+  return res.data;
+};
 
+// POST /admin/logout -> logout user
+export const logoutUser = async () => {
+  const res = await api.post('/admin/logout');
+  return res.data;
+};
 // Example: POST a new comment
 // export const postComment = async ({ photoId, comment }) => {
 //   const res = await api.post(`/commentsOfPhoto/${photoId}`, comment);

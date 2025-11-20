@@ -24,6 +24,17 @@ import SchemaInfo from "./schema/schemaInfo.js";
 const portno = 3001; // Port number to use
 const app = express();
 
+// Add middleware to parse JSON bodies
+app.use(express.json());
+
+// --- Add session middleware ---
+app.use(session({
+  secret: 'SECRETKEY', // replace with a strong secret in production
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // true if using HTTPS
+}));
+
 // Enable CORS for all routes
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -35,6 +46,62 @@ app.use((req, res, next) => {
     next();
   }
 });
+
+
+// --- AUTHENTICATION MIDDLEWARE ---
+// Protect all routes except /admin/login and /admin/logout
+app.use((req, res, next) => {
+  if (req.path === '/admin/login' || req.path === '/admin/logout') {
+    return next();
+  }
+  if (!req.session.user) {
+    return res.status(401).send({ error: 'Unauthorized: Please login' });
+  }
+  next();
+});
+
+// --- LOGIN endpoint ---
+app.post('/admin/login', async (req, res) => {
+  try {
+    const { login_name } = req.body;
+    if (!login_name) {
+      return res.status(400).send({ error: 'login_name required' });
+    }
+    
+    // Find user by login_name (make sure your User schema has this field)
+    const user = await User.findOne({ login_name }).lean();
+    if (!user) {
+      return res.status(400).send({ error: 'Invalid login_name' });
+    }
+
+    // Save user info in session (minimal info)
+    req.session.user = { _id: user._id.toString(), first_name: user.first_name };
+
+    // Return minimal user info
+    return res.status(200).send({ _id: user._id.toString(), first_name: user.first_name });
+  } catch (err) {
+    console.error('Error in /admin/login:', err);
+    return res.status(500).send({ error: 'Internal server error' });
+  }
+});
+
+// --- LOGOUT endpoint ---
+app.post('/admin/logout', (req, res) => {
+  if (!req.session.user) {
+    return res.status(400).send({ error: 'Not logged in' });
+  }
+  
+  req.session.destroy(err => {
+    if (err) {
+      console.error('Error destroying session:', err);
+      return res.status(500).send({ error: 'Internal server error' });
+    }
+    res.clearCookie('connect.sid'); // clear cookie in browser
+    return res.status(200).send({ message: 'Logged out successfully' });
+  });
+});
+
+
 
 mongoose.Promise = bluebird;
 mongoose.set("strictQuery", false);
