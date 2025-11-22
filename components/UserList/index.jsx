@@ -15,6 +15,7 @@ import useZustandStore from "../../zustandStore";
 import "./styles.css";
 
 function UserList() {
+  alert('NEW VERSION LOADED!'); 
   const navigate = useNavigate();
 
   // Zustand global store
@@ -23,8 +24,9 @@ function UserList() {
   );
   const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
   const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
+  const currentUser = useZustandStore((s) => s.currentUser); // ADD THIS
 
-  // 1. Fetch users
+  // 1. Fetch users - ONLY if logged in
   const {
     data: users,
     isLoading: usersLoading,
@@ -33,6 +35,7 @@ function UserList() {
   } = useQuery({
     queryKey: ["users"],
     queryFn: fetchUsers,
+    enabled: !!currentUser, // ADD THIS - only fetch if logged in
   });
 
   // 2. Fetch photos for each user in parallel
@@ -41,9 +44,14 @@ function UserList() {
       users?.map((user) => ({
         queryKey: ["photosOfUser", user._id],
         queryFn: () => fetchPhotosByUser(user._id),
-        enabled: !!users,
+        enabled: !!users && !!currentUser, // ADD currentUser check
       })) || [],
   });
+
+  // Early return if not logged in
+  if (!currentUser) {
+    return null; // Don't render anything if not logged in
+  }
 
   // Loading states
   if (usersLoading) return <div>Loading users...</div>;

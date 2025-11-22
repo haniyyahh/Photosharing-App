@@ -3,7 +3,34 @@ import axios from "axios";
 // Reusable axios instance
 const api = axios.create({
   baseURL: "http://localhost:3001",
+  withCredentials: true,
 });
+
+//  RESPONSE interceptors
+api.interceptors.response.use(
+  (response) => {
+    // If response is successful, just return it
+    return response;
+  },
+  (error) => {
+    // If we get a 401 (Unauthorized), user needs to login
+    if (error.response && error.response.status === 401) {
+      // Clear the current user from Zustand store
+      const resetStore = useZustandStore.getState().resetStore;
+      resetStore();
+      
+      // Redirect to login page
+      // Only redirect if not already on login page
+      if (window.location.pathname !== '/login-register') {
+        window.location.href = '/login-register';
+      }
+    }
+    
+    // Always reject the promise so the calling code can handle it
+    return Promise.reject(error);
+  }
+);
+
 
 // -----------------------------
 // GET REQUESTS
@@ -59,7 +86,9 @@ export async function fetchUserComments(userId) {
 // -----------------------------
 // POST /admin/login -> login user
 export const loginUser = async (loginName) => {
-  const res = await api.post('/admin/login', { login_name: loginName });
+  const res = await api.post('/admin/login', { 
+    login_name: loginName 
+  });
   return res.data;
 };
 
