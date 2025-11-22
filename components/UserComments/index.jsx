@@ -12,6 +12,8 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchUserComments } from '../../api';
 import axios from "axios";
 
+axios.defaults.withCredentials = true;
+
 // NEW: Zustand store import
 import useZustandStore from '../../zustandStore';
 
@@ -32,7 +34,9 @@ function UserComments() {
     const fetchComments = async () => {
       try {
         // fetch all photos for userId
-        const photosRes = await axios.get(`http://localhost:3001/photosOfUser/${userId}`);
+        const photosRes = await axios.get(`http://localhost:3001/photosOfUser/${userId}`, {
+          withCredentials: true
+        });
         const photos = photosRes.data;
 
         // extract all comments authored by userId

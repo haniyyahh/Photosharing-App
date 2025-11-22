@@ -18,7 +18,8 @@ import TopBar from './components/TopBar';
 import UserDetail from './components/UserDetail';
 import UserList from './components/UserList';
 import UserPhotos from './components/UserPhotos';
-import UserComments from './components/UserComments';
+//import UserComments from './components/UserComments';
+import UserCommentsRoute from './components/UserComments';
 import LoginRegister from './components/LoginRegister';
 
 // Zustand store
