@@ -86,9 +86,7 @@ export async function fetchUserComments(userId) {
 // -----------------------------
 // POST /admin/login -> login user
 export const loginUser = async (loginName) => {
-  const res = await api.post('/admin/login', { 
-    login_name: loginName 
-  });
+  const res = await api.post('/admin/login', { login_name: loginName });
   return res.data;
 };
 

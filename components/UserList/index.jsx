@@ -15,7 +15,7 @@ import useZustandStore from "../../zustandStore";
 import "./styles.css";
 
 function UserList() {
-  alert('NEW VERSION LOADED!'); 
+  // alert('NEW VERSION LOADED!'); 
   const navigate = useNavigate();
 
   // Zustand global store

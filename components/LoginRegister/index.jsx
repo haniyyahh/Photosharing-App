@@ -69,3 +69,4 @@ function LoginRegister() {
     </Box>
   );
 }
+export default LoginRegister;

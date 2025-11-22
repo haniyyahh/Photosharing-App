@@ -63,14 +63,14 @@ function PhotoShare() {
   const setAdvancedFeaturesEnabled = useZustandStore((s) => s.setAdvancedFeaturesEnabled);
   const currentUser = useZustandStore((state) => state.currentUser);
   
-  console.log('=== PhotoShare Render ===');
-  console.log('currentUser:', currentUser);
-  console.log('currentUser type:', typeof currentUser);
-  console.log('currentUser === null:', currentUser === null);
-  console.log('currentUser !== null:', currentUser !== null);
+  // console.log('=== PhotoShare Render ===');
+  // console.log('currentUser:', currentUser);
+  // console.log('currentUser type:', typeof currentUser);
+  // console.log('currentUser === null:', currentUser === null);
+  // console.log('currentUser !== null:', currentUser !== null);
   
   const userIsLoggedIn = currentUser !== null;
-  console.log('userIsLoggedIn:', userIsLoggedIn);
+  // console.log('userIsLoggedIn:', userIsLoggedIn);
   
 
   // Check if user is logged in
@@ -109,19 +109,19 @@ function PhotoShare() {
                 {userIsLoggedIn ? (
                   <Route path="/users/:userId" element={<UserDetailRoute />} />
                 ) : (
-                  <Route path="/users/:userId" element={<Navigate to="/login-register" replace />} />
+                  <Route path="/users/:userId" element={<Navigate to="/login" replace />} />
                 )}
 
                 {userIsLoggedIn ? (
                   <Route path="/photos/:userId/:photoId?" element={<UserPhotosRoute />} />
                 ) : (
-                  <Route path="/photos/:userId/:photoId?" element={<Navigate to="/login-register" replace />} />
+                  <Route path="/photos/:userId/:photoId?" element={<Navigate to="/login" replace />} />
                 )}
 
                 {userIsLoggedIn ? (
                   <Route path="/users" element={<UserList advancedFeaturesEnabled={advancedFeaturesEnabled} />} />
                 ) : (
-                  <Route path="/users" element={<Navigate to="/login-register" replace />} />
+                  <Route path="/users" element={<Navigate to="/login" replace />} />
                 )}
 
                 {/* Comments (advanced mode only) */}
@@ -137,21 +137,21 @@ function PhotoShare() {
                     }
                   />
                 ) : (
-                  <Route path="/comments/:userId" element={<Navigate to="/login-register" replace />} />
+                  <Route path="/comments/:userId" element={<Navigate to="/login" replace />} />
                 )}
 
                 {/* Default route */}
                 {userIsLoggedIn ? (
                   <Route path="/" element={<Navigate to={`/users/${currentUser._id}`} replace />} />
                 ) : (
-                  <Route path="/" element={<Navigate to="/login-register" replace />} />
+                  <Route path="/" element={<Navigate to="/login" replace />} />
                 )}
 
                 {/* Catch-all for any other routes */}
                 {userIsLoggedIn ? (
                   <Route path="*" element={<Navigate to={`/users/${currentUser._id}`} replace />} />
                 ) : (
-                  <Route path="*" element={<Navigate to="/login-register" replace />} />
+                  <Route path="*" element={<Navigate to="/login" replace />} />
                 )}
               </Routes>
             </Paper>
