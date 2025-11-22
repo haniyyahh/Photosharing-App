@@ -10,8 +10,12 @@ const userSchema = new mongoose.Schema({
   location: String,
   description: String,
   occupation: String,
+  login_name: { 
+    type: String, 
+    required: true, 
+    unique: true 
+  },
 });
-
 /**
  * Create a Mongoose Model for a User using the userSchema.
  */

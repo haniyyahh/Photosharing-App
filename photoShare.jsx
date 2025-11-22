@@ -19,6 +19,7 @@ import UserDetail from './components/UserDetail';
 import UserList from './components/UserList';
 import UserPhotos from './components/UserPhotos';
 import UserComments from './components/UserComments';
+import LoginRegister from './components/LoginRegister';
 
 // Zustand store
 import useZustandStore from "./zustandStore";
@@ -57,9 +58,23 @@ function RedirectToUserDetails() {
 // main app
 
 function PhotoShare() {
-  // Zustand global feature toggle
+  console.log('=== PhotoShare CALLED ===');
   const advancedFeaturesEnabled = useZustandStore((s) => s.advancedFeaturesEnabled);
   const setAdvancedFeaturesEnabled = useZustandStore((s) => s.setAdvancedFeaturesEnabled);
+  const currentUser = useZustandStore((state) => state.currentUser);
+  
+  // console.log('=== PhotoShare Render ===');
+  // console.log('currentUser:', currentUser);
+  // console.log('currentUser type:', typeof currentUser);
+  // console.log('currentUser === null:', currentUser === null);
+  // console.log('currentUser !== null:', currentUser !== null);
+  
+  const userIsLoggedIn = currentUser !== null;
+  // console.log('userIsLoggedIn:', userIsLoggedIn);
+  
+
+  // Check if user is logged in
+  // const userIsLoggedIn = currentUser !== null;
 
   return (
     <BrowserRouter>
@@ -74,42 +89,70 @@ function PhotoShare() {
 
           <div className="main-topbar-buffer" />
 
-          <Grid item sm={3}>
-            <Paper className="main-grid-item">
-              <UserList advancedFeaturesEnabled={advancedFeaturesEnabled} />
-            </Paper>
-          </Grid>
+          {/* Sidebar - only show when logged in */}
+          {userIsLoggedIn && (
+            <Grid item sm={3}>
+              <Paper className="main-grid-item">
+                <UserList advancedFeaturesEnabled={advancedFeaturesEnabled} />
+              </Paper>
+            </Grid>
+          )}
 
-          <Grid item sm={9}>
+          {/* Main content area - adjust width based on login state */}
+          <Grid item sm={userIsLoggedIn ? 9 : 12}>
             <Paper className="main-grid-item">
               <Routes>
+                {/* Login/Register route */}
+                <Route path="/login" element={<LoginRegister />} />
 
-                {/* User detail */}
-                <Route path="/users/:userId" element={<UserDetailRoute />} />
+                {/* Conditional routes based on login status */}
+                {userIsLoggedIn ? (
+                  <Route path="/users/:userId" element={<UserDetailRoute />} />
+                ) : (
+                  <Route path="/users/:userId" element={<Navigate to="/login" replace />} />
+                )}
 
-                {/* Photos */}
-                <Route
-                  path="/photos/:userId/:photoId?"
-                  element={<UserPhotosRoute />}
-                />
+                {userIsLoggedIn ? (
+                  <Route path="/photos/:userId/:photoId?" element={<UserPhotosRoute />} />
+                ) : (
+                  <Route path="/photos/:userId/:photoId?" element={<Navigate to="/login" replace />} />
+                )}
 
-                {/* All users */}
-                <Route
-                  path="/users"
-                  element={<UserList advancedFeaturesEnabled={advancedFeaturesEnabled} />}
-                />
+                {userIsLoggedIn ? (
+                  <Route path="/users" element={<UserList advancedFeaturesEnabled={advancedFeaturesEnabled} />} />
+                ) : (
+                  <Route path="/users" element={<Navigate to="/login" replace />} />
+                )}
 
                 {/* Comments (advanced mode only) */}
-                <Route
-                  path="/comments/:userId"
-                  element={
-                    advancedFeaturesEnabled ? (
-                      <UserComments />
-                    ) : (
-                      <RedirectToUserDetails />
-                    )
-                  }
-                />
+                {userIsLoggedIn ? (
+                  <Route
+                    path="/comments/:userId"
+                    element={
+                      advancedFeaturesEnabled ? (
+                        <UserCommentsRoute />
+                      ) : (
+                        <RedirectToUserDetails />
+                      )
+                    }
+                  />
+                ) : (
+                  <Route path="/comments/:userId" element={<Navigate to="/login" replace />} />
+                )}
+
+                {/* Default route */}
+                {userIsLoggedIn ? (
+                  <Route path="/" element={<Navigate to={`/users/${currentUser._id}`} replace />} />
+                ) : (
+                  <Route path="/" element={<Navigate to="/login" replace />} />
+                )}
+
+                {/* Catch-all for any other routes */}
+                {userIsLoggedIn ? (
+                  <Route path="*" element={<Navigate to={`/users/${currentUser._id}`} replace />} />
+                ) : (
+                  <Route path="*" element={<Navigate to="/login" replace />} />
+                )}
               </Routes>
             </Paper>
           </Grid>

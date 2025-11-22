@@ -11,6 +11,7 @@ import bluebird from "bluebird";
 import express from "express";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import session from 'express-session';
 
 // ToDO - Your submission should work without this line. Comment out or delete this line for tests and before submission!
 // import models from "./modelData/photoApp.js";
@@ -34,17 +35,33 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: false } // true if using HTTPS
 }));
-
+const allowedOrigin = 'http://localhost:3000';
 // Enable CORS for all routes
+// app.use((req, res, next) => {
+//   res.header('Access-Control-Allow-Credentials', 'true');
+//   // res.header('Access-Control-Allow-Origin', '*');
+//   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+//   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+//   if (req.method === 'OPTIONS') {
+//     res.sendStatus(200);
+//   } else {
+//     next();
+//   }
+// });
+// const allowedOrigin = 'http://localhost:3000'; // Your frontend URL
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Origin', allowedOrigin);
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true'); // Allow cookies with CORS
+
   if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
+    // Respond immediately to OPTIONS requests
+    return res.sendStatus(204);
   }
+
+  next();
 });
 
 
@@ -62,6 +79,7 @@ app.use((req, res, next) => {
 
 // --- LOGIN endpoint ---
 app.post('/admin/login', async (req, res) => {
+  console.log('Request body on login:', req.body);
   try {
     const { login_name } = req.body;
     if (!login_name) {
@@ -109,7 +127,7 @@ mongoose.set("strictQuery", false);
 //   useNewUrlParser: true,
 //   useUnifiedTopology: true,
 // });
-mongoose.connect("mongodb://127.0.0.1/project2", {
+mongoose.connect("mongodb://127.0.0.1/project3", {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
