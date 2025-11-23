@@ -53,53 +53,49 @@ app.use((req, res, next) => {
 
 // --- AUTHENTICATION MIDDLEWARE ---
 app.use((req, res, next) => {
-  if (req.path === '/admin/login' || req.path === '/admin/logout') {
+  const openRoutes = [
+    '/admin/login',
+    '/admin/logout',
+    '/user'              // <-- allow registration without login
+  ];
+
+  if (openRoutes.includes(req.path)) {
     return next();
   }
+
   if (!req.session.user) {
     return res.status(401).send({ error: 'Unauthorized: Please login' });
   }
+
   next();
 });
 
 // --- LOGIN endpoint ---
 app.post('/admin/login', async (req, res) => {
-  console.log('Request body on login:', req.body);
   try {
-    const { login_name } = req.body;
-    if (!login_name) {
-      return res.status(400).send({ error: 'login_name required' });
+    const { login_name, password } = req.body;
+
+    if (!login_name || !password) {
+      return res.status(400).send({ error: 'login_name and password required' });
     }
 
     const user = await User.findOne({ login_name }).lean();
-    if (!user) {
-      return res.status(400).send({ error: 'Invalid login_name' });
+    if (!user || user.password !== password) {
+      return res.status(400).send({ error: 'Invalid login_name or password' });
     }
 
     req.session.user = { _id: user._id.toString(), first_name: user.first_name };
 
-    return res.status(200).send({ _id: user._id.toString(), first_name: user.first_name });
+    return res.status(200).send({
+      _id: user._id.toString(),
+      first_name: user.first_name
+    });
   } catch (err) {
     console.error('Error in /admin/login:', err);
     return res.status(500).send({ error: 'Internal server error' });
   }
 });
 
-// --- LOGOUT endpoint ---
-app.post('/admin/logout', (req, res) => {
-  if (!req.session.user) {
-    return res.status(400).send({ error: 'Not logged in' });
-  }
-
-  req.session.destroy(err => {
-    if (err) {
-      console.error('Error destroying session:', err);
-      return res.status(500).send({ error: 'Internal server error' });
-    }
-    res.clearCookie('connect.sid');
-    return res.status(200).send({ message: 'Logged out successfully' });
-  });
-});
 
 mongoose.Promise = bluebird;
 mongoose.set("strictQuery", false);
@@ -109,10 +105,6 @@ mongoose.connect("mongodb://127.0.0.1/project3", {
 })
 .then(() => {
   console.log('MongoDB connected');
-
-  app.get('/', (req, res) => {
-    res.send('Hello World!');
-  });
 
   app.listen(portno, () => {
     console.log(`Server listening on http://localhost:${portno}`);
@@ -199,6 +191,52 @@ app.get('/user/:id', async (req, res) => {
   } catch (err) {
     console.error('Error in /user/:id:', err);
     return res.status(500).send({ error: 'Internal server error' });
+  }
+});
+
+// --- CREATE USER ---
+app.post('/user', async (req, res) => {
+  try {
+    const {
+      login_name,
+      password,
+      first_name,
+      last_name,
+      location,
+      description,
+      occupation
+    } = req.body;
+
+    if (!login_name || !password || !first_name || !last_name) {
+      return res.status(400).send({ error: "Required fields: login_name, password, first_name, last_name" });
+    }
+
+    const existing = await User.findOne({ login_name }).lean();
+    if (existing) {
+      return res.status(400).send({ error: "login_name already exists" });
+    }
+
+    const newUser = new User({
+      login_name,
+      password, // plain text for this assignment
+      first_name,
+      last_name,
+      location: location || "",
+      description: description || "",
+      occupation: occupation || ""
+    });
+
+    await newUser.save();
+
+    // *** FIX: Return login_name because tests require it ***
+    return res.status(200).send({
+      login_name: newUser.login_name,
+      user_id: newUser._id.toString()
+    });
+
+  } catch (err) {
+    console.error("Error in POST /user:", err);
+    return res.status(500).send({ error: "Internal server error" });
   }
 });
 

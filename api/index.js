@@ -1,4 +1,5 @@
 import axios from "axios";
+import useZustandStore from "../zustandStore";
 
 // Reusable axios instance
 const api = axios.create({
@@ -6,50 +7,43 @@ const api = axios.create({
   withCredentials: true,
 });
 
-//  RESPONSE interceptors
+// RESPONSE INTERCEPTOR (401 handler)
 api.interceptors.response.use(
-  (response) => {
-    // If response is successful, just return it
-    return response;
-  },
+  (response) => response,
   (error) => {
-    // If we get a 401 (Unauthorized), user needs to login
     if (error.response && error.response.status === 401) {
-      // Clear the current user from Zustand store
-      const resetStore = useZustandStore.getState().resetStore;
-      resetStore();
-      
-      // Redirect to login page
-      // Only redirect if not already on login page
-      if (window.location.pathname !== '/login-register') {
-        window.location.href = '/login-register';
+      try {
+        // Reset Zustand store safely
+        const resetStore = useZustandStore.getState().resetStore;
+        resetStore();
+      } catch (err) {
+        console.error("Zustand reset failed:", err);
+      }
+
+      // Redirect only if not already on login page
+      if (window.location.pathname !== "/login-register") {
+        window.location.href = "/login-register";
       }
     }
-    
-    // Always reject the promise so the calling code can handle it
+
     return Promise.reject(error);
   }
 );
 
-
-// -----------------------------
+// --------------------------------------------------
 // GET REQUESTS
-// -----------------------------
+// --------------------------------------------------
 
-
-// GET /user/list -> all users (id, first_name, last_name)
 export const fetchUsers = async () => {
   const res = await api.get("/user/list");
   return res.data;
 };
 
-// GET /user/:id -> single user details
 export const fetchUserById = async (id) => {
   const res = await api.get(`/user/${id}`);
   return res.data;
 };
 
-// GET /photosOfUser/:id -> photos + comments + embedded user data
 export const fetchPhotosByUser = async (id) => {
   const res = await api.get(`/photosOfUser/${id}`);
   return res.data;
@@ -59,7 +53,6 @@ export async function fetchUserComments(userId) {
   const photosRes = await api.get(`/photosOfUser/${userId}`);
   const photos = photosRes.data;
 
-  // extract all comments authored by userId
   const userComments = [];
 
   photos.forEach(photo => {
@@ -80,21 +73,29 @@ export async function fetchUserComments(userId) {
   return userComments;
 }
 
-// -----------------------------
+// --------------------------------------------------
 // POST / PUT / DELETE REQUESTS
-// -----------------------------
-// POST /admin/login -> login user
-export const loginUser = async (loginName) => {
-  const res = await api.post('/admin/login', { login_name: loginName });
+// --------------------------------------------------
+
+// POST /admin/login  (NEW: includes password)
+export const loginUser = async ({ login_name, password }) => {
+  const res = await api.post("/admin/login", { login_name, password });
   return res.data;
 };
 
-// POST /admin/logout -> logout user
+// POST /admin/logout
 export const logoutUser = async () => {
-  const res = await api.post('/admin/logout');
+  const res = await api.post("/admin/logout");
   return res.data;
 };
-// Example: POST a new comment
+
+// POST /user  (NEW: user registration)
+export const registerUser = async (data) => {
+  const res = await api.post("/user", data);
+  return res.data;
+};
+
+// POST comment
 export const postComment = async ({ photoId, comment }) => {
   const res = await api.post(`/commentsOfPhoto/${photoId}`, comment);
   return res.data;
@@ -104,17 +105,5 @@ export async function addCommentToPhoto(photoId, comment) {
   const res = await api.post(`/commentsOfPhoto/${photoId}`, { comment });
   return res.data;
 }
-
-// // Example: DELETE a photo (if you add)
-// export const deletePhoto = async (photoId) => {
-//   const res = await api.delete(`/photo/${photoId}`);
-//   return res.data;
-// };
-
-// // Example: PUT update user (if you add)
-// export const updateUser = async ({ userId, data }) => {
-//   const res = await api.put(`/user/${userId}`, data);
-//   return res.data;
-// };
 
 export default api;
