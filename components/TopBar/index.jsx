@@ -2,8 +2,11 @@ import React from 'react';
 import { AppBar, Toolbar, Typography, FormControlLabel, Switch, Button } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { Popover } from "@mui/material";
+import { useState } from "react";
 import axios from 'axios';
 import './styles.css';
+import AddPhoto from "../AddPhotos/AddPhotos";
 
 // Import zustand store and API functions
 import useZustandStore from "../../zustandStore";
@@ -18,6 +21,8 @@ function TopBar() {
   const setAdvancedFeaturesEnabled = useZustandStore((s) => s.setAdvancedFeaturesEnabled);
   const currentUser = useZustandStore((state) => state.currentUser);
   const resetStore = useZustandStore((state) => state.resetStore);
+  const showUpload = useZustandStore(s => s.showUpload);
+  const setShowUpload = useZustandStore(s => s.setShowUpload);
 
   const userIsLoggedIn = currentUser !== null;
 
@@ -89,57 +94,78 @@ function TopBar() {
         {/* Right side - Login status and controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {userIsLoggedIn ? (
-            <>
-              {/* Show "Hi {firstname}" when logged in */}
-              <Typography variant="body1" color="inherit" sx={{ marginRight: 1 }}>
-                Hi {currentUser.first_name}
-              </Typography>
+  <>
+    {/* Greeting */}
+    <Typography variant="body1" color="inherit" sx={{ marginRight: 1 }}>
+      Hi {currentUser.first_name}
+    </Typography>
 
-              {/* Logout button */}
-              <Button 
-                color="inherit" 
-                onClick={handleLogout}
-                disabled={logoutMutation.isPending}
-                sx={{ 
-                  textTransform: 'none',
-                  border: '1px solid rgba(255, 255, 255, 0.5)',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
-                  }
-                }}
-              >
-                {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
-              </Button>
+    {/* Add Photo Button (MUI styled) */}
+    <Button 
+      variant="outlined"
+      color="inherit"
+      sx={{ textTransform: "none" }}
+      onClick={(e) => setShowUpload(e.currentTarget)}
+    >
+      Add Photo
+    </Button>
 
-              {/* Advanced features toggle (only when logged in) */}
-              <FormControlLabel
-                control={(
-                  <Switch
-                    checked={advancedFeaturesEnabled}
-                    onChange={(e) => setAdvancedFeaturesEnabled(e.target.checked)}
-                    sx={{
-                      '& .MuiSwitch-switchBase.Mui-checked': {
-                        color: 'white',
-                      },
-                      '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                      },
-                    }}
-                  />
-                )}
-                label={(
-                  <Typography variant="body2" sx={{ color: 'white', fontSize: '0.85rem' }}>
-                    Enable Advanced Features
-                  </Typography>
-                )}
-              />
-            </>
-          ) : (
-            // Show "Please Login" when not logged in
-            <Typography variant="body1" color="inherit">
-              Please Login
-            </Typography>
-          )}
+    {/* Upload Popover */}
+    <Popover
+      open={Boolean(showUpload)}
+      anchorEl={showUpload}
+      onClose={() => setShowUpload(null)}
+      anchorOrigin={{
+        vertical: "bottom",
+        horizontal: "right",
+      }}
+      transformOrigin={{
+        vertical: "top",
+        horizontal: "right",
+      }}
+      PaperProps={{
+        sx: { p: 2, width: 280 } // nice small floating card
+      }}
+    >
+      <AddPhoto onFinish={() => setShowUpload(null)} />
+    </Popover>
+
+    {/* Logout */}
+    <Button 
+      color="inherit" 
+      onClick={handleLogout}
+      disabled={logoutMutation.isPending}
+      sx={{ textTransform: 'none', border: '1px solid rgba(255,255,255,0.5)' }}
+    >
+      {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+    </Button>
+
+    {/* Advanced toggle */}
+    <FormControlLabel
+      control={
+        <Switch
+          checked={advancedFeaturesEnabled}
+          onChange={(e) => setAdvancedFeaturesEnabled(e.target.checked)}
+          sx={{
+            '& .MuiSwitch-switchBase.Mui-checked': {
+              color: 'white',
+            },
+            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+              backgroundColor: 'rgba(255,255,255,0.7)',
+            },
+            '& .MuiSwitch-track': {
+              backgroundColor: 'rgba(255,255,255,0.3)',
+            }
+          }}
+        />
+      }
+      label={<Typography variant="body2" color="white">Enable Advanced Features</Typography>}
+    />
+  </>
+) : (
+  <Typography variant="body1" color="inherit">Please Login</Typography>
+)}
+
         </div>
       </Toolbar>
     </AppBar>

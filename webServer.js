@@ -12,6 +12,7 @@ import express from "express";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import session from 'express-session';
+import path from "path";
 
 // ToDO - Your submission should work without this line. Comment out or delete this line for tests and before submission!
 // import models from "./modelData/photoApp.js";
@@ -128,6 +129,9 @@ const __dirname = dirname(__filename);
 
 // Static files
 app.use(express.static(__dirname));
+
+// FOR PHOTOS:
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 app.get("/", function (request, response) {
   response.send("Simple web server of files from " + __dirname);
@@ -299,4 +303,44 @@ app.post("/commentsOfPhoto/:photo_id", async (req, res) => {
     console.error("Error in POST /commentsOfPhoto:", err);
     return res.status(500).send({ error: "Internal server error" });
   }
+});
+
+// // ==== UPLOADING AND STORING NEW PHOTOS API
+import multer from "multer";
+import fs from "fs";
+
+const processFormBody = multer({ storage: multer.memoryStorage() }).single('uploadedphoto');
+
+app.post("/photos/new", (req, res) => {
+  processFormBody(req, res, async (err) => {
+    if (err || !req.file) {
+      return res.status(400).send({ error: "No file uploaded or error occurred" });
+    }
+
+    if (!req.session.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
+
+    const timestamp = Date.now();
+    const filename = "U" + timestamp + req.file.originalname;
+
+    fs.writeFile(`./images/${filename}`, req.file.buffer, async (err) => {
+      if (err) {
+        return res.status(500).send({ error: "Failed to save file" });
+      }
+
+      try {
+        const newPhoto = await Photo.create({
+          file_name: filename,
+          date_time: new Date(),
+          user_id: req.session.user._id
+        });
+
+        return res.status(200).send(newPhoto);
+      } catch (dbErr) {
+        console.error("DB save error:", dbErr);
+        return res.status(500).send({ error: "Failed saving photo metadata" });
+      }
+    });
+  });
 });

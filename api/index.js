@@ -105,6 +105,22 @@ export async function addCommentToPhoto(photoId, comment) {
   return res.data;
 }
 
+// ==== Photo Uploading w Multer: POST Request
+// POST /photos/new
+export async function uploadPhoto(formData) {
+  const response = await fetch("http://localhost:3001/photos/new", {
+    method: "POST",
+    credentials: "include", // important for session login
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error("Upload failed");
+  }
+
+  return response.json();
+}
+
 // // Example: DELETE a photo (if you add)
 // export const deletePhoto = async (photoId) => {
 //   const res = await api.delete(`/photo/${photoId}`);
