@@ -82,7 +82,6 @@ export async function fetchUserComments(userId) {
 
 // -----------------------------
 // POST / PUT / DELETE REQUESTS
-// 
 // -----------------------------
 // POST /admin/login -> login user
 export const loginUser = async (loginName) => {
@@ -96,10 +95,15 @@ export const logoutUser = async () => {
   return res.data;
 };
 // Example: POST a new comment
-// export const postComment = async ({ photoId, comment }) => {
-//   const res = await api.post(`/commentsOfPhoto/${photoId}`, comment);
-//   return res.data;
-// };
+export const postComment = async ({ photoId, comment }) => {
+  const res = await api.post(`/commentsOfPhoto/${photoId}`, comment);
+  return res.data;
+};
+
+export async function addCommentToPhoto(photoId, comment) {
+  const res = await api.post(`/commentsOfPhoto/${photoId}`, { comment });
+  return res.data;
+}
 
 // // Example: DELETE a photo (if you add)
 // export const deletePhoto = async (photoId) => {
