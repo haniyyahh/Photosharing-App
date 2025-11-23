@@ -150,6 +150,7 @@ mongoose.connect("mongodb://127.0.0.1/project3", {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+
 // We have the express static module
 // (http://expressjs.com/en/starter/static-files.html) do all the work for us.
 app.use(express.static(__dirname));
@@ -298,5 +299,32 @@ app.get('/photosOfUser/:id', async (req, res) => {
     console.error('Error in /photosOfUser/:id:', err);
     return res.status(500).send({ error: 'Internal server error' });
   }
+});
+
+
+// ==== UPLOADING AND STORING NEW PHOTOS
+import multer from "multer";
+import fs from "fs";
+
+const processFormBody = multer({ storage: multer.memoryStorage() }).single('uploadedphoto');
+
+app.post("/photos/new", (req, res) => {
+  processFormBody(req, res, (err) => {
+    if (err || !req.file) {
+      return res.status(400).send({ error: "No file uploaded or error occurred" });
+    }
+
+    const timestamp = Date.now();
+    const filename = "U" + timestamp + req.file.originalname;
+
+    fs.writeFile(`./images/${filename}`, req.file.buffer, (err) => {
+      if (err) {
+        return res.status(500).send({ error: "Failed to save file" });
+      }
+      // Save photo metadata to DB here (filename, userId, etc.)
+
+      return res.status(200).send({ message: "File uploaded successfully" });
+    });
+  });
 });
 

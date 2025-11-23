@@ -30,6 +30,9 @@ const useZustandStore = create((set, get) => ({
   setCurrentUser: (userObj) => set({ currentUser: userObj ?? null }),
   clearCurrentUser: () => set({ currentUser: null }),
 
+  showUpload: false,
+  setShowUpload: (val) => set({ showUpload: val }),
+
   // convenience reset (useful for tests / logout)
   resetStore: () =>
     set({

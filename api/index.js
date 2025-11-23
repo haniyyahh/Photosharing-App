@@ -95,6 +95,20 @@ export const logoutUser = async () => {
   const res = await api.post('/admin/logout');
   return res.data;
 };
+
+// ==== Photo Uploading w Multer: POST Request
+// POST /photos/new
+export const uploadPhoto = async (formData) => {
+  const response = await axios.post(
+    "http://localhost:3001/photos/new",
+    formData,
+    {
+      withCredentials: true,
+      headers: { "Content-Type": "multipart/form-data" }
+    }
+  );
+  return response.data;
+};
 // Example: POST a new comment
 // export const postComment = async ({ photoId, comment }) => {
 //   const res = await api.post(`/commentsOfPhoto/${photoId}`, comment);

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import './styles.css';
+import AddPhoto from "../AddPhotos/AddPhotos";
 
 // Import zustand store and API functions
 import useZustandStore from "../../zustandStore";
@@ -18,6 +19,8 @@ function TopBar() {
   const setAdvancedFeaturesEnabled = useZustandStore((s) => s.setAdvancedFeaturesEnabled);
   const currentUser = useZustandStore((state) => state.currentUser);
   const resetStore = useZustandStore((state) => state.resetStore);
+  const showUpload = useZustandStore(s => s.showUpload);
+  const setShowUpload = useZustandStore(s => s.setShowUpload);
 
   const userIsLoggedIn = currentUser !== null;
 
@@ -94,7 +97,9 @@ function TopBar() {
               <Typography variant="body1" color="inherit" sx={{ marginRight: 1 }}>
                 Hi {currentUser.first_name}
               </Typography>
-
+              {/* Upload Photo button */}
+              {currentUser && <button onClick={() => setShowUpload(true)}>Add Photo</button>}
+              {showUpload && <AddPhoto />}
               {/* Logout button */}
               <Button 
                 color="inherit" 
