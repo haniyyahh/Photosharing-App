@@ -1,9 +1,8 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, FormControlLabel, Switch, Button } from '@mui/material';
+import { AppBar, Toolbar, Typography, FormControlLabel, Switch, Button , Popover } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Popover } from "@mui/material";
-import { useState } from "react";
+
 import axios from 'axios';
 import './styles.css';
 import AddPhoto from "../AddPhotos/AddPhotos";
@@ -83,7 +82,7 @@ function TopBar() {
       <Toolbar style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         {/* Left side - App name */}
         <Typography variant="h5" color="inherit">
-          Haniyyah Hamid & Clowie G
+          Haniyyah & Clowie
         </Typography>
 
         {/* Center - Context info */}
@@ -142,7 +141,7 @@ function TopBar() {
 
     {/* Advanced toggle */}
     <FormControlLabel
-      control={
+      control={(
         <Switch
           checked={advancedFeaturesEnabled}
           onChange={(e) => setAdvancedFeaturesEnabled(e.target.checked)}
@@ -158,7 +157,7 @@ function TopBar() {
             }
           }}
         />
-      }
+      )}
       label={<Typography variant="body2" color="white">Enable Advanced Features</Typography>}
     />
   </>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import PropTypes from "prop-types";
 import {
   Typography,
   Grid,
@@ -26,7 +25,6 @@ function UserPhotos({ userId, photoId = null }) {
   const advancedFeaturesEnabled = useZustandStore(
     (s) => s.advancedFeaturesEnabled
   );
-  const loggedInUser = useZustandStore((s) => s.loggedInUser);
 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [newComment, setNewComment] = useState("");
@@ -46,8 +44,7 @@ function UserPhotos({ userId, photoId = null }) {
 
   // React Query mutation to ADD comment
   const commentMutation = useMutation({
-    mutationFn: ({ photo_id, comment }) =>
-      addCommentToPhoto(photo_id, comment),
+    mutationFn: ({ photo_id, comment }) => addCommentToPhoto(photo_id, comment),
     onSuccess: () => {
       // Refetch photos to show new comment
       queryClient.invalidateQueries(["photosOfUser", userId]);
@@ -274,10 +271,5 @@ function UserPhotos({ userId, photoId = null }) {
     </Grid>
   );
 }
-
-UserPhotos.propTypes = {
-  userId: PropTypes.string.isRequired,
-  photoId: PropTypes.string,
-};
 
 export default UserPhotos;

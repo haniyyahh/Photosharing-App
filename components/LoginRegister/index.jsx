@@ -32,8 +32,7 @@ function LoginRegister() {
   // LOGIN MUTATION
   // -----------------------------------
   const loginMutation = useMutation({
-    mutationFn: ({ login_name, password }) =>
-      loginUser({ login_name, password }),   // ✅ FIXED
+    mutationFn: ({ login_name, password }) => loginUser({ login_name, password }),   // ✅ FIXED
     onSuccess: (data) => {
       setLoginError('');
       setCurrentUser(data);
@@ -165,27 +164,21 @@ function LoginRegister() {
         fullWidth
         margin="dense"
         value={regData.login_name}
-        onChange={(e) =>
-          setRegData((d) => ({ ...d, login_name: e.target.value }))
-        }
+        onChange={(e) => setRegData((d) => ({ ...d, login_name: e.target.value }))}
       />
       <TextField
         label="First Name (required)"
         fullWidth
         margin="dense"
         value={regData.first_name}
-        onChange={(e) =>
-          setRegData((d) => ({ ...d, first_name: e.target.value }))
-        }
+        onChange={(e) => setRegData((d) => ({ ...d, first_name: e.target.value }))}
       />
       <TextField
         label="Last Name (required)"
         fullWidth
         margin="dense"
         value={regData.last_name}
-        onChange={(e) =>
-          setRegData((d) => ({ ...d, last_name: e.target.value }))
-        }
+        onChange={(e) => setRegData((d) => ({ ...d, last_name: e.target.value }))}
       />
 
       {/* OPTIONAL FIELDS */}
@@ -194,27 +187,21 @@ function LoginRegister() {
         fullWidth
         margin="dense"
         value={regData.location}
-        onChange={(e) =>
-          setRegData((d) => ({ ...d, location: e.target.value }))
-        }
+        onChange={(e) => setRegData((d) => ({ ...d, location: e.target.value }))}
       />
       <TextField
         label="Description"
         fullWidth
         margin="dense"
         value={regData.description}
-        onChange={(e) =>
-          setRegData((d) => ({ ...d, description: e.target.value }))
-        }
+        onChange={(e) => setRegData((d) => ({ ...d, description: e.target.value }))}
       />
       <TextField
         label="Occupation"
         fullWidth
         margin="dense"
         value={regData.occupation}
-        onChange={(e) =>
-          setRegData((d) => ({ ...d, occupation: e.target.value }))
-        }
+        onChange={(e) => setRegData((d) => ({ ...d, occupation: e.target.value }))}
       />
 
       {/* PASSWORD FIELDS */}
@@ -224,9 +211,7 @@ function LoginRegister() {
         fullWidth
         margin="dense"
         value={regData.password}
-        onChange={(e) =>
-          setRegData((d) => ({ ...d, password: e.target.value }))
-        }
+        onChange={(e) => setRegData((d) => ({ ...d, password: e.target.value }))}
       />
 
       <TextField
@@ -235,9 +220,7 @@ function LoginRegister() {
         fullWidth
         margin="dense"
         value={regData.password2}
-        onChange={(e) =>
-          setRegData((d) => ({ ...d, password2: e.target.value }))
-        }
+        onChange={(e) => setRegData((d) => ({ ...d, password2: e.target.value }))}
       />
 
       <Button

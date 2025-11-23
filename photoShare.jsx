@@ -14,6 +14,8 @@ import {
 
 import './styles/main.css';
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import TopBar from './components/TopBar';
 import UserDetail from './components/UserDetail';
 import UserList from './components/UserList';
@@ -26,8 +28,6 @@ import LoginRegister from './components/LoginRegister';
 import useZustandStore from "./zustandStore";
 
 // React Query
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 const queryClient = new QueryClient();
 
