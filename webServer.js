@@ -7,9 +7,10 @@
 import mongoose from "mongoose";
 import bluebird from "bluebird";
 import express from "express";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-import session from "express-session";
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import session from 'express-session';
+import path from "path";
 
 import User from "./schema/user.js";
 import Photo from "./schema/photo.js";
@@ -202,31 +203,42 @@ app.get('/test/info', async (req, res) => {
   }
 });
 
-app.get('/test/counts', async (req, res) => {
-  try {
-    const [userCount, photoCount, schemaCount] = await Promise.all([
-      User.countDocuments({}),
-      Photo.countDocuments({}),
-      SchemaInfo.countDocuments({})
-    ]);
-    res.status(200).send({ user: userCount, photo: photoCount, schemaInfo: schemaCount });
-  } catch (err) {
-    console.error('Error in /test/counts:', err);
-    res.status(500).send({ error: 'Internal server error' });
-  }
+// // ==== UPLOADING AND STORING NEW PHOTOS API
+import multer from "multer";
+import fs from "fs";
+
+const processFormBody = multer({ storage: multer.memoryStorage() }).single('uploadedphoto');
+
+app.post("/photos/new", (req, res) => {
+  processFormBody(req, res, async (err) => {
+    if (err || !req.file) {
+      return res.status(400).send({ error: "No file uploaded or error occurred" });
+    }
+
+    if (!req.session.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
+
+    const timestamp = Date.now();
+    const filename = "U" + timestamp + req.file.originalname;
+
+    fs.writeFile(`./images/${filename}`, req.file.buffer, async (err) => {
+      if (err) {
+        return res.status(500).send({ error: "Failed to save file" });
+      }
+
+      try {
+        const newPhoto = await Photo.create({
+          file_name: filename,
+          date_time: new Date(),
+          user_id: req.session.user._id
+        });
+
+        return res.status(200).send(newPhoto);
+      } catch (dbErr) {
+        console.error("DB save error:", dbErr);
+        return res.status(500).send({ error: "Failed saving photo metadata" });
+      }
+    });
+  });
 });
-
-// --- Server start ---
-mongoose.Promise = bluebird;
-mongoose.set("strictQuery", false);
-mongoose.connect("mongodb://127.0.0.1/project3", { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => {
-    console.log('MongoDB connected');
-    app.listen(portno, () => { console.log(`Server listening on http://localhost:${portno}`); });
-  })
-  .catch(err => console.error('Failed to connect to MongoDB:', err));
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-app.use(express.static(__dirname));
-app.get("/", (req, res) => res.send("Simple web server of files from " + __dirname));
