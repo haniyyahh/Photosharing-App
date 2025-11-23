@@ -1,12 +1,10 @@
 /**
- * Project 2 Express server connected to MongoDB 'project2'.
+ * Project 3 Express server connected to MongoDB 'project3'.
  * Start with: node webServer.js
  * Client uses axios to call these endpoints.
  */
 
-// eslint-disable-next-line import/no-extraneous-dependencies
 import mongoose from "mongoose";
-// eslint-disable-next-line import/no-extraneous-dependencies
 import bluebird from "bluebird";
 import express from "express";
 import { fileURLToPath } from 'url';
@@ -14,71 +12,50 @@ import { dirname } from 'path';
 import session from 'express-session';
 import path from "path";
 
-// ToDO - Your submission should work without this line. Comment out or delete this line for tests and before submission!
-// import models from "./modelData/photoApp.js";
-
-// Load the Mongoose schema for User, Photo, and SchemaInfo
-// ToDO - Your submission will use code below, so make sure to uncomment this line for tests and before submission!
 import User from "./schema/user.js";
 import Photo from "./schema/photo.js";
 import SchemaInfo from "./schema/schemaInfo.js";
 
-const portno = 3001; // Port number to use
+const portno = 3001;
 const app = express();
 
-// Add middleware to parse JSON bodies
 app.use(express.json());
 
-// --- Add session middleware ---
 app.use(session({
-  secret: 'SECRETKEY', // replace with a strong secret in production
+  secret: 'SECRETKEY',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false } // true if using HTTPS
+  cookie: { secure: false }
 }));
-const allowedOrigin = 'http://localhost:3000';
 
-// Enable CORS
+const allowedOrigin = 'http://localhost:3000';
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', allowedOrigin);
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
-
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
 // --- AUTHENTICATION MIDDLEWARE ---
 app.use((req, res, next) => {
-  if (req.path === '/admin/login' || req.path === '/admin/logout') {
-    return next();
-  }
-  if (!req.session.user) {
-    return res.status(401).send({ error: 'Unauthorized: Please login' });
-  }
+  const openRoutes = ['/admin/login', '/admin/logout', '/user'];
+  if (openRoutes.includes(req.path)) return next();
+  if (!req.session.user) return res.status(401).send({ error: 'Unauthorized: Please login' });
   next();
 });
 
 // --- LOGIN endpoint ---
 app.post('/admin/login', async (req, res) => {
-  console.log('Request body on login:', req.body);
   try {
-    const { login_name } = req.body;
-    if (!login_name) {
-      return res.status(400).send({ error: 'login_name required' });
-    }
+    const { login_name, password } = req.body;
+    if (!login_name || !password) return res.status(400).send({ error: 'login_name and password required' });
 
     const user = await User.findOne({ login_name }).lean();
-    if (!user) {
-      return res.status(400).send({ error: 'Invalid login_name' });
-    }
+    if (!user || user.password !== password) return res.status(400).send({ error: 'Invalid login_name or password' });
 
     req.session.user = { _id: user._id.toString(), first_name: user.first_name };
-
     return res.status(200).send({ _id: user._id.toString(), first_name: user.first_name });
   } catch (err) {
     console.error('Error in /admin/login:', err);
@@ -88,89 +65,41 @@ app.post('/admin/login', async (req, res) => {
 
 // --- LOGOUT endpoint ---
 app.post('/admin/logout', (req, res) => {
-  if (!req.session.user) {
-    return res.status(400).send({ error: 'Not logged in' });
-  }
-
   req.session.destroy(err => {
     if (err) {
-      console.error('Error destroying session:', err);
-      return res.status(500).send({ error: 'Internal server error' });
+      console.error("Error destroying session:", err);
+      return res.status(500).send({ error: "Logout failed" });
     }
-    res.clearCookie('connect.sid');
-    return res.status(200).send({ message: 'Logged out successfully' });
+    res.status(200).send({ success: true });
   });
 });
 
-mongoose.Promise = bluebird;
-mongoose.set("strictQuery", false);
-mongoose.connect("mongodb://127.0.0.1/project3", {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log('MongoDB connected');
-
-  app.get('/', (req, res) => {
-    res.send('Hello World!');
-  });
-
-  app.listen(portno, () => {
-    console.log(`Server listening on http://localhost:${portno}`);
-  });
-})
-.catch(err => {
-  console.error('Failed to connect to MongoDB:', err);
-});
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Static files
-app.use(express.static(__dirname));
-
-// FOR PHOTOS:
-app.use('/images', express.static(path.join(__dirname, 'images')));
-
-app.get("/", function (request, response) {
-  response.send("Simple web server of files from " + __dirname);
-});
-
-/**
- * /test/info - Returns the SchemaInfo object of the database in JSON format.
- */
-app.get('/test/info', async (req, res) => {
+// --- CREATE USER ---
+app.post('/user', async (req, res) => {
   try {
-    const info = await SchemaInfo.findOne().lean();
-    if (!info) {
-      return res.status(404).send({ error: 'SchemaInfo not found' });
+    const { login_name, password, first_name, last_name, location, description, occupation } = req.body;
+    if (!login_name || !password || !first_name || !last_name) {
+      return res.status(400).send({ error: "Required fields: login_name, password, first_name, last_name" });
     }
-    return res.status(200).send(info);
-  } catch (err) {
-    console.error('Error in /test/info:', err);
-    return res.status(500).send({ error: 'Internal server error' });
-  }
-});
 
-/**
- * /test/counts - Returns count of collections.
- */
-app.get('/test/counts', async (req, res) => {
-  try {
-    const [userCount, photoCount, schemaCount] = await Promise.all([
-      User.countDocuments({}),
-      Photo.countDocuments({}),
-      SchemaInfo.countDocuments({})
-    ]);
-    res.status(200).send({
-      user: userCount,
-      photo: photoCount,
-      schemaInfo: schemaCount
+    const existing = await User.findOne({ login_name }).lean();
+    if (existing) return res.status(400).send({ error: "login_name already exists" });
+
+    const newUser = new User({
+      login_name,
+      password,
+      first_name,
+      last_name,
+      location: location || "",
+      description: description || "",
+      occupation: occupation || ""
     });
+    await newUser.save();
+
+    return res.status(200).send({ login_name: newUser.login_name, user_id: newUser._id.toString() });
   } catch (err) {
-    console.error('Error in /test/counts:', err);
-    res.status(500).send({ error: 'Internal server error' });
+    console.error("Error in POST /user:", err);
+    return res.status(500).send({ error: "Internal server error" });
   }
 });
 
@@ -189,20 +118,15 @@ app.get('/user/list', async (req, res) => {
 app.get('/user/:id', async (req, res) => {
   try {
     const userId = req.params.id;
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).send({ error: 'Invalid user id format' });
-    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) return res.status(400).send({ error: 'Invalid user id format' });
 
     const user = await User.findById(userId, '_id first_name last_name location description occupation').lean();
+    if (!user) return res.status(404).send({ error: 'User not found' });
 
-    if (!user) {
-      return res.status(404).send({ error: 'User not found' });
-    }
-
-    return res.status(200).send(user);
+    res.status(200).send(user);
   } catch (err) {
     console.error('Error in /user/:id:', err);
-    return res.status(500).send({ error: 'Internal server error' });
+    res.status(500).send({ error: 'Internal server error' });
   }
 });
 
@@ -210,98 +134,72 @@ app.get('/user/:id', async (req, res) => {
 app.get('/photosOfUser/:id', async (req, res) => {
   try {
     const userId = req.params.id;
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).send({ error: 'Invalid user id format' });
-    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) return res.status(400).send({ error: 'Invalid user id format' });
 
     const photos = await Photo.find({ user_id: userId }).select('-__v').lean();
-
-    if (!photos || photos.length === 0) {
-      return res.status(404).send({ error: 'Photos not found' });
-    }
+    if (!photos || photos.length === 0) return res.status(404).send({ error: 'Photos not found' });
 
     const commentUserIds = [];
     photos.forEach(photo => {
       if (photo.comments && photo.comments.length > 0) {
         photo.comments.forEach(comment => {
-          if (comment.user_id && !commentUserIds.includes(comment.user_id.toString())) {
-            commentUserIds.push(comment.user_id.toString());
-          }
+          if (comment.user_id && !commentUserIds.includes(comment.user_id.toString())) commentUserIds.push(comment.user_id.toString());
         });
       }
     });
 
-    const users = await User.find(
-      { _id: { $in: commentUserIds } },
-      '_id first_name last_name'
-    ).lean();
-
+    const users = await User.find({ _id: { $in: commentUserIds } }, '_id first_name last_name').lean();
     const userMap = {};
-    users.forEach(u => {
-      userMap[u._id.toString()] = u;
-    });
+    users.forEach(u => { userMap[u._id.toString()] = u; });
 
     photos.forEach(photo => {
       if (photo.comments && photo.comments.length > 0) {
         photo.comments.forEach(comment => {
-          const userIdStr = comment.user_id ? comment.user_id.toString() : null;
-          if (userIdStr && userMap[userIdStr]) {
-            comment.user = userMap[userIdStr];
-          } else {
-            comment.user = null;
-          }
+          const uid = comment.user_id ? comment.user_id.toString() : null;
+          comment.user = uid && userMap[uid] ? userMap[uid] : null;
           delete comment.user_id;
         });
       }
-      delete photo.__v;
     });
 
-    return res.status(200).send(photos);
+    res.status(200).send(photos);
   } catch (err) {
     console.error('Error in /photosOfUser/:id:', err);
-    return res.status(500).send({ error: 'Internal server error' });
+    res.status(500).send({ error: 'Internal server error' });
   }
 });
 
 // --- ADD COMMENT API ---
-
 app.post("/commentsOfPhoto/:photo_id", async (req, res) => {
   try {
+    if (!req.session.user) return res.status(401).send({ error: "Unauthorized" });
     const { photo_id } = req.params;
     const { comment } = req.body;
+    if (!comment || comment.trim() === "") return res.status(400).send({ error: "Comment cannot be empty" });
 
-    // must be logged in
-    if (!req.session.user) {
-      return res.status(401).send({ error: "Unauthorized" });
-    }
-
-    // validate comment
-    if (!comment || comment.trim() === "") {
-      return res.status(400).send({ error: "Comment cannot be empty" });
-    }
-
-    // find photo
     const photo = await Photo.findById(photo_id);
-    if (!photo) {
-      return res.status(404).send({ error: "Photo not found" });
-    }
+    if (!photo) return res.status(404).send({ error: "Photo not found" });
 
-    // build comment
-    const newComment = {
-      comment: comment.trim(),
-      user_id: req.session.user._id,
-      date_time: new Date(),
-    };
-
-    // push comment & save
+    const newComment = { comment: comment.trim(), user_id: req.session.user._id, date_time: new Date() };
     photo.comments.push(newComment);
     await photo.save();
 
-    return res.status(200).send(photo);
+    res.status(200).send(photo);
   } catch (err) {
     console.error("Error in POST /commentsOfPhoto:", err);
-    return res.status(500).send({ error: "Internal server error" });
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+// --- Test routes ---
+app.get('/test/info', async (req, res) => {
+  try {
+    const info = await SchemaInfo.findOne().lean();
+    if (!info) return res.status(404).send({ error: 'SchemaInfo not found' });
+    res.status(200).send(info);
+  } catch (err) {
+    console.error('Error in /test/info:', err);
+    res.status(500).send({ error: 'Internal server error' });
   }
 });
 

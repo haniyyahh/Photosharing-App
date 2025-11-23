@@ -10,12 +10,21 @@ const userSchema = new mongoose.Schema({
   location: String,
   description: String,
   occupation: String,
+
+  // login_name must be unique and required
   login_name: { 
     type: String, 
     required: true, 
     unique: true 
   },
+
+  // store user passwords
+  password: {
+    type: String,
+    required: true
+  }
 });
+
 /**
  * Create a Mongoose Model for a User using the userSchema.
  */
