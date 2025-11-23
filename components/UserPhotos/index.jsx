@@ -7,27 +7,29 @@ import {
   CardMedia,
   Box,
   Button,
+  TextField,
 } from "@mui/material";
 import { NavigateBefore, NavigateNext } from "@mui/icons-material";
 import { Link, useNavigate } from "react-router-dom";
 
-import { useQuery } from "@tanstack/react-query";
-import { fetchPhotosByUser } from "../../api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchPhotosByUser, addCommentToPhoto } from "../../api";
 
 import useZustandStore from "../../zustandStore";
 import "./styles.css";
 
 function UserPhotos({ userId, photoId = null }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Zustand global state
   const advancedFeaturesEnabled = useZustandStore(
     (s) => s.advancedFeaturesEnabled
   );
-  const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
-  const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
+  const loggedInUser = useZustandStore((s) => s.loggedInUser);
 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [newComment, setNewComment] = useState("");
   const initialized = React.useRef(false);
 
   // React Query fetch
@@ -42,6 +44,17 @@ function UserPhotos({ userId, photoId = null }) {
     enabled: !!userId,
   });
 
+  // React Query mutation to ADD comment
+  const commentMutation = useMutation({
+    mutationFn: ({ photo_id, comment }) =>
+      addCommentToPhoto(photo_id, comment),
+    onSuccess: () => {
+      // Refetch photos to show new comment
+      queryClient.invalidateQueries(["photosOfUser", userId]);
+      setNewComment(""); // Clear input
+    },
+  });
+
   // Initialize index when photos load + photoId provided
   useEffect(() => {
     if (!initialized.current && photoId && userPhotos.length > 0) {
@@ -51,7 +64,7 @@ function UserPhotos({ userId, photoId = null }) {
     }
   }, [photoId, userPhotos]);
 
-  // Sync URL to reflect current photo (only in advanced mode)
+  // Sync URL (advanced mode only)
   useEffect(() => {
     if (advancedFeaturesEnabled && userPhotos.length > 0) {
       const currentPhoto = userPhotos[currentPhotoIndex];
@@ -82,23 +95,27 @@ function UserPhotos({ userId, photoId = null }) {
     }
   };
 
+  const handleAddComment = () => {
+    if (!newComment.trim()) return;
+
+    const photo = userPhotos[currentPhotoIndex];
+
+    commentMutation.mutate({
+      photo_id: photo._id,
+      comment: newComment.trim(),
+    });
+  };
+
   // Loading & error states
   if (isLoading) return <div>Loading photos...</div>;
   if (isError) return <div>Error loading photos: {error.message}</div>;
 
-  // advanced mode
+  // ADVANCED MODE (with comment input UI)
   if (advancedFeaturesEnabled) {
     const photo = userPhotos[currentPhotoIndex];
 
     return (
-      <Box
-        sx={{
-          width: "100%",
-          maxWidth: "100%",
-          overflow: "hidden",
-          boxSizing: "border-box",
-        }}
-      >
+      <Box sx={{ width: "100%", maxWidth: "100%", overflow: "hidden" }}>
         <Box
           display="flex"
           justifyContent="space-between"
@@ -129,9 +146,7 @@ function UserPhotos({ userId, photoId = null }) {
           </Button>
         </Box>
 
-        <Box
-          sx={{ display: "flex", justifyContent: "center", width: "100%", px: 1 }}
-        >
+        <Box sx={{ display: "flex", justifyContent: "center", px: 1 }}>
           <Card sx={{ maxWidth: "900px", width: "100%" }}>
             <CardMedia
               component="img"
@@ -156,23 +171,11 @@ function UserPhotos({ userId, photoId = null }) {
 
               {photo.comments?.length > 0 ? (
                 photo.comments.map((c) => (
-                  <Box
-                    key={c._id}
-                    sx={{
-                      mt: 1.5,
-                      p: 1.5,
-                      backgroundColor: "#f9f9f9",
-                      borderRadius: 1,
-                      wordWrap: "break-word",
-                    }}
-                  >
+                  <div key={c._id} style={{ marginTop: "6px" }}>
                     <Typography variant="body2">
                       <Link
                         to={`/users/${c.user._id}`}
-                        style={{
-                          textDecoration: "none",
-                          color: "#1976d2",
-                        }}
+                        style={{ textDecoration: "none", color: "#1976d2" }}
                       >
                         <strong>
                           {c.user.first_name} {c.user.last_name}
@@ -184,13 +187,38 @@ function UserPhotos({ userId, photoId = null }) {
                     <Typography variant="caption" color="textSecondary">
                       {new Date(c.date_time).toLocaleString()}
                     </Typography>
-                  </Box>
+                  </div>
                 ))
               ) : (
                 <Typography variant="body2" color="textSecondary">
                   No comments
                 </Typography>
               )}
+
+              {/* NEW COMMENT INPUT FIELD */}
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  Add a Comment
+                </Typography>
+
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Write something..."
+                />
+
+                <Button
+                  variant="contained"
+                  sx={{ mt: 1.5 }}
+                  onClick={handleAddComment}
+                  disabled={!newComment.trim() || commentMutation.isLoading}
+                >
+                  {commentMutation.isLoading ? "Posting..." : "Add Comment"}
+                </Button>
+              </Box>
             </Box>
           </Card>
         </Box>
@@ -198,7 +226,7 @@ function UserPhotos({ userId, photoId = null }) {
     );
   }
 
-  // default grid mode
+  // NON-ADVANCED MODE
   return (
     <Grid container spacing={2}>
       {userPhotos.map((photo) => (

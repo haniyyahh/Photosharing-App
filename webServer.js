@@ -36,37 +36,22 @@ app.use(session({
   cookie: { secure: false } // true if using HTTPS
 }));
 const allowedOrigin = 'http://localhost:3000';
-// Enable CORS for all routes
-// app.use((req, res, next) => {
-//   res.header('Access-Control-Allow-Credentials', 'true');
-//   // res.header('Access-Control-Allow-Origin', '*');
-//   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-//   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-//   if (req.method === 'OPTIONS') {
-//     res.sendStatus(200);
-//   } else {
-//     next();
-//   }
-// });
-// const allowedOrigin = 'http://localhost:3000'; // Your frontend URL
 
+// Enable CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', allowedOrigin);
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true'); // Allow cookies with CORS
+  res.header('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
-    // Respond immediately to OPTIONS requests
     return res.sendStatus(204);
   }
 
   next();
 });
 
-
 // --- AUTHENTICATION MIDDLEWARE ---
-// Protect all routes except /admin/login and /admin/logout
 app.use((req, res, next) => {
   if (req.path === '/admin/login' || req.path === '/admin/logout') {
     return next();
@@ -85,17 +70,14 @@ app.post('/admin/login', async (req, res) => {
     if (!login_name) {
       return res.status(400).send({ error: 'login_name required' });
     }
-    
-    // Find user by login_name (make sure your User schema has this field)
+
     const user = await User.findOne({ login_name }).lean();
     if (!user) {
       return res.status(400).send({ error: 'Invalid login_name' });
     }
 
-    // Save user info in session (minimal info)
     req.session.user = { _id: user._id.toString(), first_name: user.first_name };
 
-    // Return minimal user info
     return res.status(200).send({ _id: user._id.toString(), first_name: user.first_name });
   } catch (err) {
     console.error('Error in /admin/login:', err);
@@ -108,32 +90,26 @@ app.post('/admin/logout', (req, res) => {
   if (!req.session.user) {
     return res.status(400).send({ error: 'Not logged in' });
   }
-  
+
   req.session.destroy(err => {
     if (err) {
       console.error('Error destroying session:', err);
       return res.status(500).send({ error: 'Internal server error' });
     }
-    res.clearCookie('connect.sid'); // clear cookie in browser
+    res.clearCookie('connect.sid');
     return res.status(200).send({ message: 'Logged out successfully' });
   });
 });
 
-
-
 mongoose.Promise = bluebird;
 mongoose.set("strictQuery", false);
-// mongoose.connect("mongodb://127.0.0.1/project2", {
-//   useNewUrlParser: true,
-//   useUnifiedTopology: true,
-// });
 mongoose.connect("mongodb://127.0.0.1/project3", {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
 .then(() => {
   console.log('MongoDB connected');
-  
+
   app.get('/', (req, res) => {
     res.send('Hello World!');
   });
@@ -150,18 +126,12 @@ mongoose.connect("mongodb://127.0.0.1/project3", {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// We have the express static module
-// (http://expressjs.com/en/starter/static-files.html) do all the work for us.
+// Static files
 app.use(express.static(__dirname));
 
 app.get("/", function (request, response) {
   response.send("Simple web server of files from " + __dirname);
 });
-
-/**
- * /test/info - Returns the SchemaInfo object of the database in JSON format.
- *              This is good for testing connectivity with MongoDB.
- */
 
 /**
  * /test/info - Returns the SchemaInfo object of the database in JSON format.
@@ -180,8 +150,7 @@ app.get('/test/info', async (req, res) => {
 });
 
 /**
- * /test/counts - Returns an object with the counts of the different collections
- *                in JSON format.
+ * /test/counts - Returns count of collections.
  */
 app.get('/test/counts', async (req, res) => {
   try {
@@ -201,10 +170,9 @@ app.get('/test/counts', async (req, res) => {
   }
 });
 
-// /user/list - Return all users with minimal fields for the sidebar
+// /user/list
 app.get('/user/list', async (req, res) => {
   try {
-    // fetch only _id, first_name, last_name
     const users = await User.find({}, '_id first_name last_name').lean();
     res.status(200).send(users);
   } catch (err) {
@@ -213,23 +181,20 @@ app.get('/user/list', async (req, res) => {
   }
 });
 
-// /user/:id - Return detailed info for one user by _id
+// /user/:id
 app.get('/user/:id', async (req, res) => {
   try {
     const userId = req.params.id;
-    
-    // validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).send({ error: 'Invalid user id format' });
     }
-    
-    //fFind user with needed fields
+
     const user = await User.findById(userId, '_id first_name last_name location description occupation').lean();
-    
+
     if (!user) {
       return res.status(404).send({ error: 'User not found' });
     }
-    
+
     return res.status(200).send(user);
   } catch (err) {
     console.error('Error in /user/:id:', err);
@@ -237,24 +202,21 @@ app.get('/user/:id', async (req, res) => {
   }
 });
 
-// /photosOfUser/:id - Return photos of user including comments with minimal user info in comments
+// /photosOfUser/:id
 app.get('/photosOfUser/:id', async (req, res) => {
   try {
     const userId = req.params.id;
 
-    // validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).send({ error: 'Invalid user id format' });
     }
 
-    // fetch photos of this user, excluding __v (because mocha test removes it)
     const photos = await Photo.find({ user_id: userId }).select('-__v').lean();
 
     if (!photos || photos.length === 0) {
       return res.status(404).send({ error: 'Photos not found' });
     }
 
-    // collect all user_ids from all comments across photos
     const commentUserIds = [];
     photos.forEach(photo => {
       if (photo.comments && photo.comments.length > 0) {
@@ -266,7 +228,6 @@ app.get('/photosOfUser/:id', async (req, res) => {
       }
     });
 
-    // fetch all the users for those IDs
     const users = await User.find(
       { _id: { $in: commentUserIds } },
       '_id first_name last_name'
@@ -277,7 +238,6 @@ app.get('/photosOfUser/:id', async (req, res) => {
       userMap[u._id.toString()] = u;
     });
 
-    // replace comment.user_id with comment.user object
     photos.forEach(photo => {
       if (photo.comments && photo.comments.length > 0) {
         photo.comments.forEach(comment => {
@@ -287,10 +247,10 @@ app.get('/photosOfUser/:id', async (req, res) => {
           } else {
             comment.user = null;
           }
-          delete comment.user_id; // remove user_id
+          delete comment.user_id;
         });
       }
-      delete photo.__v; // remove __v because mocha test removes it
+      delete photo.__v;
     });
 
     return res.status(200).send(photos);
@@ -300,3 +260,43 @@ app.get('/photosOfUser/:id', async (req, res) => {
   }
 });
 
+// --- ADD COMMENT API ---
+
+app.post("/commentsOfPhoto/:photo_id", async (req, res) => {
+  try {
+    const { photo_id } = req.params;
+    const { comment } = req.body;
+
+    // must be logged in
+    if (!req.session.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
+
+    // validate comment
+    if (!comment || comment.trim() === "") {
+      return res.status(400).send({ error: "Comment cannot be empty" });
+    }
+
+    // find photo
+    const photo = await Photo.findById(photo_id);
+    if (!photo) {
+      return res.status(404).send({ error: "Photo not found" });
+    }
+
+    // build comment
+    const newComment = {
+      comment: comment.trim(),
+      user_id: req.session.user._id,
+      date_time: new Date(),
+    };
+
+    // push comment & save
+    photo.comments.push(newComment);
+    await photo.save();
+
+    return res.status(200).send(photo);
+  } catch (err) {
+    console.error("Error in POST /commentsOfPhoto:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
