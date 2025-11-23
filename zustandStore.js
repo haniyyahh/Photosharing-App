@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-const useZustandStore = create((set, get) => ({
+const useZustandStore = create((set) => ({
   // --- UI / selection state ---
   advancedFeaturesEnabled: false,
   selectedUserId: null,   // id of the user currently selected in the UI
@@ -34,8 +34,7 @@ const useZustandStore = create((set, get) => ({
   setShowUpload: (val) => set({ showUpload: val }),
 
   // convenience reset (useful for tests / logout)
-  resetStore: () =>
-    set({
+  resetStore: () => set({
       advancedFeaturesEnabled: false,
       selectedUserId: null,
       selectedPhotoId: null,

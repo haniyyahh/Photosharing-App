@@ -8,14 +8,12 @@ import {
   Typography,
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { fetchUserComments } from '../../api';
 import axios from "axios";
-
-axios.defaults.withCredentials = true;
 
 // NEW: Zustand store import
 import useZustandStore from '../../zustandStore';
+
+axios.defaults.withCredentials = true;
 
 function UserComments() {
   const { userId } = useParams();

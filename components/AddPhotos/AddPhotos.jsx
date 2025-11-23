@@ -1,8 +1,8 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button, Box, Typography } from "@mui/material";
 import useZustandStore from "../../zustandStore";
 import { uploadPhoto } from "../../api";
-import { Button, Box, Typography } from "@mui/material";
 
 export default function AddPhotos() {
   const [file, setFile] = useState(null);
@@ -26,12 +26,15 @@ export default function AddPhotos() {
   });
 
   const handleUpload = () => {
-    if (!file) return setStatus("Choose a file first.");
+    if (!file) {
+      setStatus("Choose a file first.");
+      return; // NOW consistent-return is satisfied
+    }
+
     setStatus("");
 
     const formData = new FormData();
     formData.append("uploadedphoto", file);
-    formData.append("user_id", loggedInUser?._id); // OPTIONAL (backend can use session)
 
     uploadMutation.mutate(formData);
   };

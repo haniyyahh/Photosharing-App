@@ -55,8 +55,7 @@ function UserList() {
 
   // Loading states
   if (usersLoading) return <div>Loading users...</div>;
-  if (usersError)
-    return <div>Error loading users: {usersErrorObj.message}</div>;
+  if (usersError) return <div>Error loading users: {usersErrorObj.message}</div>;
 
   const anyPhotosLoading = photosQueries.some((q) => q.isLoading);
   if (anyPhotosLoading) return <div>Loading photos...</div>;
@@ -68,8 +67,7 @@ function UserList() {
   });
 
   // 4. Collect all comments from all photos
-  const allComments = usersWithCounts.flatMap((user) =>
-    user.photos.flatMap((photo) => photo.comments || [])
+  const allComments = usersWithCounts.flatMap((user) => user.photos.flatMap((photo) => photo.comments || [])
   );
 
   // 5. Count comments per user (comment authors)

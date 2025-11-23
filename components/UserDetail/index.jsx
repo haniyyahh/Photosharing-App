@@ -1,7 +1,5 @@
 import React, { useEffect } from 'react';
-import PropTypes from 'prop-types';
 import { Typography, Button } from '@mui/material';
-import axios from "axios";
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from "@tanstack/react-query";
 import { fetchUserById } from "../../api"; // api/index.js
@@ -64,9 +62,5 @@ function UserDetail() {
     </div>
   );
 }
-
-UserDetail.propTypes = {
-  userId: PropTypes.string,
-};
 
 export default UserDetail;
