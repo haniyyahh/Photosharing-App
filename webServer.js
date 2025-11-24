@@ -273,6 +273,44 @@ app.get("/photosOfUser/:id", async (req, res) => {
   }
 });
 
+// FETCHING ALL COMMENTS OWNED BY A USER
+app.get("/commentsByUser/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).send({ error: "Invalid user id format" });
+    }
+
+    // Find all photos that have comments by this user
+    const photos = await Photo.find({ "comments.user_id": userId }).lean();
+
+    const userComments = [];
+
+    photos.forEach(photo => {
+      if (photo.comments) {
+        photo.comments.forEach(comment => {
+          if (comment.user_id && comment.user_id.toString() === userId) {
+            userComments.push({
+              ...comment,
+              photoId: photo._id.toString(),
+              photoUrl: photo.file_name,
+              photoUserId: photo.user_id.toString(),
+            });
+          }
+        });
+      }
+    });
+
+    return res.status(200).send(userComments);
+  } catch (err) {
+    console.error("Error in /commentsByUser/:userId:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+
+
+
 //ADD COMMENT
 app.post("/commentsOfPhoto/:photo_id", async (req, res) => {
   try {
