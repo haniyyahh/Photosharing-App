@@ -46,30 +46,33 @@ export const fetchPhotosByUser = async (id) => {
   const res = await api.get(`/photosOfUser/${id}`);
   return res.data;
 };
-
 export async function fetchUserComments(userId) {
-  const photosRes = await api.get(`/photosOfUser/${userId}`);
-  const photos = photosRes.data;
-
-  const userComments = [];
-
-  photos.forEach(photo => {
-    if (photo.comments) {
-      photo.comments.forEach(comment => {
-        if (comment.user && comment.user._id === userId) {
-          userComments.push({
-            ...comment,
-            photoId: photo._id,
-            photoUrl: photo.file_name,
-            photoUserId: photo.user_id,
-          });
-        }
-      });
-    }
-  });
-
-  return userComments;
+  const res = await api.get(`/commentsByUser/${userId}`);
+  return res.data;
 }
+// export async function fetchUserComments(userId) {
+//   const photosRes = await api.get(`/photosOfUser/${userId}`);
+//   const photos = photosRes.data;
+
+//   const userComments = [];
+
+//   photos.forEach(photo => {
+//     if (photo.comments) {
+//       photo.comments.forEach(comment => {
+//         if (comment.user && comment.user._id === userId) {
+//           userComments.push({
+//             ...comment,
+//             photoId: photo._id,
+//             photoUrl: photo.file_name,
+//             photoUserId: photo.user_id,
+//           });
+//         }
+//       });
+//     }
+//   });
+
+//   return userComments;
+// }
 
 // POST / PUT / DELETE REQUESTS
 
