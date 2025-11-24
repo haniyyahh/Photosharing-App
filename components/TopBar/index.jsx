@@ -99,11 +99,14 @@ function TopBar() {
       Hi {currentUser.first_name}
     </Typography>
 
-    {/* Add Photo Button (MUI styled) */}
+    {/* Add Photo Button */}
     <Button 
       variant="outlined"
       color="inherit"
-      sx={{ textTransform: "none" }}
+      sx={{ 
+        textTransform: 'none',
+        border: '1px solid rgba(255,255,255,0.5)'
+      }}
       onClick={(e) => setShowUpload(e.currentTarget)}
     >
       Add Photo
