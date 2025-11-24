@@ -28,9 +28,7 @@ function LoginRegister() {
   const navigate = useNavigate();
   const setCurrentUser = useZustandStore((state) => state.setCurrentUser);
 
-  // -----------------------------------
   // LOGIN MUTATION
-  // -----------------------------------
   const loginMutation = useMutation({
     mutationFn: ({ login_name, password }) => loginUser({ login_name, password }),   // ✅ FIXED
     onSuccess: (data) => {
@@ -52,9 +50,7 @@ function LoginRegister() {
     });
   };
 
-  // -----------------------------------
   // REGISTRATION MUTATION
-  // -----------------------------------
   const registerMutation = useMutation({
     mutationFn: (body) => registerUser(body),
     onSuccess: () => {

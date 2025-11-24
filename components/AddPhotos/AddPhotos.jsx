@@ -17,7 +17,7 @@ export default function AddPhotos() {
       setStatus("Upload successful!");
       setFile(null);
 
-      // Auto refresh the user's photos
+      // auto refresh the user's photos
       if (loggedInUser?._id) {
         queryClient.invalidateQueries(["photosOfUser", loggedInUser._id]);
       }
@@ -28,7 +28,7 @@ export default function AddPhotos() {
   const handleUpload = () => {
     if (!file) {
       setStatus("Choose a file first.");
-      return; // NOW consistent-return is satisfied
+      return;
     }
 
     setStatus("");

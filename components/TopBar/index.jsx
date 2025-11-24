@@ -123,7 +123,7 @@ function TopBar() {
         horizontal: "right",
       }}
       PaperProps={{
-        sx: { p: 2, width: 280 } // nice small floating card
+        sx: { p: 2, width: 280 }
       }}
     >
       <AddPhoto onFinish={() => setShowUpload(null)} />

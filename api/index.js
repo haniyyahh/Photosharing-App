@@ -30,9 +30,7 @@ api.interceptors.response.use(
   }
 );
 
-// --------------------------------------------------
 // GET REQUESTS
-// --------------------------------------------------
 
 export const fetchUsers = async () => {
   const res = await api.get("/user/list");
@@ -73,9 +71,7 @@ export async function fetchUserComments(userId) {
   return userComments;
 }
 
-// --------------------------------------------------
 // POST / PUT / DELETE REQUESTS
-// --------------------------------------------------
 
 // POST /admin/login  (NEW: includes password)
 export const loginUser = async ({ login_name, password }) => {
@@ -106,7 +102,7 @@ export async function addCommentToPhoto(photoId, comment) {
   return res.data;
 }
 
-// ==== Photo Uploading w Multer: POST Request
+// Photo Uploading w Multer: POST Request
 // POST /photos/new
 export async function uploadPhoto(formData) {
   const response = await fetch("http://localhost:3001/photos/new", {

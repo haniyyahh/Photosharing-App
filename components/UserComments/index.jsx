@@ -10,7 +10,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from "axios";
 
-// NEW: Zustand store import
+// Zustand store import
 import useZustandStore from '../../zustandStore';
 
 axios.defaults.withCredentials = true;
@@ -19,7 +19,7 @@ function UserComments() {
   const { userId } = useParams();
   const navigate = useNavigate();
 
-  // NEW: pull global setters to keep UI state consistent
+  // pull global setters to keep UI state consistent
   const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
   const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
 
