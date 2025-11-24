@@ -1,19 +1,15 @@
 import { create } from "zustand";
 
 const useZustandStore = create((set) => ({
-  // --- UI / selection state ---
+  //  UI/selection state
   advancedFeaturesEnabled: false,
   selectedUserId: null,   // id of the user currently selected in the UI
   selectedPhotoId: null,  // id of the photo currently selected (for comments/view)
-  // optional: local-only UI flag for showing modals
   isAddPhotoModalOpen: false,
 
-  // --- session / auth (will be used by Problem 3) ---
-  // This can hold the logged in user object (or null if not logged in).
-  // For Problem 2 it's fine to default to null.
   currentUser: null,
 
-  // --- setters / actions ---
+  // setters/actions
   setAdvancedFeaturesEnabled: (value) => set({ advancedFeaturesEnabled: !!value }),
   toggleAdvancedFeaturesEnabled: () => set((s) => ({ advancedFeaturesEnabled: !s.advancedFeaturesEnabled })),
 
@@ -26,14 +22,14 @@ const useZustandStore = create((set) => ({
   openAddPhotoModal: () => set({ isAddPhotoModalOpen: true }),
   closeAddPhotoModal: () => set({ isAddPhotoModalOpen: false }),
 
-  // session actions (Problem 3 will call these when logging in/out)
+  // session actions
   setCurrentUser: (userObj) => set({ currentUser: userObj ?? null }),
   clearCurrentUser: () => set({ currentUser: null }),
 
   showUpload: false,
   setShowUpload: (val) => set({ showUpload: val }),
 
-  // convenience reset (useful for tests / logout)
+  // convenience reset (for tests/logout)
   resetStore: () => set({
       advancedFeaturesEnabled: false,
       selectedUserId: null,

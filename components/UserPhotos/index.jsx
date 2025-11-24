@@ -42,17 +42,16 @@ function UserPhotos({ userId, photoId = null }) {
     enabled: !!userId,
   });
 
-  // React Query mutation to ADD comment
+  // react Query mutation to ADD comment
   const commentMutation = useMutation({
     mutationFn: ({ photo_id, comment }) => addCommentToPhoto(photo_id, comment),
     onSuccess: () => {
-      // Refetch photos to show new comment
       queryClient.invalidateQueries(["photosOfUser", userId]);
-      setNewComment(""); // Clear input
+      setNewComment("");
     },
   });
 
-  // Initialize index when photos load + photoId provided
+  // initialize index when photos load + photoId provided
   useEffect(() => {
     if (!initialized.current && photoId && userPhotos.length > 0) {
       const idx = userPhotos.findIndex((p) => p._id === photoId);
@@ -61,7 +60,7 @@ function UserPhotos({ userId, photoId = null }) {
     }
   }, [photoId, userPhotos]);
 
-  // Sync URL (advanced mode only)
+  // sync URL (advanced mode only)
   useEffect(() => {
     if (advancedFeaturesEnabled && userPhotos.length > 0) {
       const currentPhoto = userPhotos[currentPhotoIndex];
@@ -103,9 +102,14 @@ function UserPhotos({ userId, photoId = null }) {
     });
   };
 
-  // Loading & error states
+  // loading & error states
   if (isLoading) return <div>Loading photos...</div>;
-  if (isError) return <div>Error loading photos: {error.message}</div>;
+  if (isError) return <div>Error loading photos: {error?.message || "Unknown error"}</div>;
+
+  // handle empty photo array
+  if (!userPhotos || userPhotos.length === 0) {
+    return <div>There are no photos for this user.</div>;
+  }
 
   // ADVANCED MODE (with comment input UI)
   if (advancedFeaturesEnabled) {
@@ -192,7 +196,6 @@ function UserPhotos({ userId, photoId = null }) {
                 </Typography>
               )}
 
-              {/* NEW COMMENT INPUT FIELD */}
               <Box sx={{ mt: 3 }}>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
                   Add a Comment

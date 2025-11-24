@@ -47,15 +47,7 @@ app.use((req, res, next) => {
   return next();
 });
 
-/**
- * ---------------------------
- * AUTH MIDDLEWARE
- * ---------------------------
- * OPEN ROUTES:
- *   POST /admin/login
- *   POST /user      (register)
- *   POST /admin/logout
- */
+// AUTH MIDDLEWARE
 app.use((req, res, next) => {
   const isLogin = req.path === "/admin/login" && req.method === "POST";
   const isLogout = req.path === "/admin/logout" && req.method === "POST";
@@ -72,11 +64,7 @@ app.use((req, res, next) => {
   return next();
 });
 
-/**
- * ---------------------------
- * LOGIN
- * ---------------------------
- */
+// LOGIN
 app.post("/admin/login", async (req, res) => {
   try {
     const { login_name, password } = req.body;
@@ -106,11 +94,7 @@ app.post("/admin/login", async (req, res) => {
   }
 });
 
-/**
- * ---------------------------
- * LOGOUT
- * ---------------------------
- */
+// LOGOUT
 app.post("/admin/logout", async (req, res) => {
   if (!req.session.user) {
     return res.status(400).send({ error: "No user logged in" });
@@ -127,11 +111,7 @@ app.post("/admin/logout", async (req, res) => {
   }
 });
 
-/**
- * ---------------------------
- * CREATE USER
- * ---------------------------
- */
+// CREATE USER
 app.post("/user", async (req, res) => {
   try {
     const {
@@ -176,11 +156,7 @@ app.post("/user", async (req, res) => {
   }
 });
 
-/**
- * ---------------------------
- * USER LIST
- * ---------------------------
- */
+// USER LIST
 app.get("/user/list", async (req, res) => {
   try {
     const users = await User.find({}, "_id first_name last_name").lean();
@@ -197,11 +173,7 @@ app.get("/user/list", async (req, res) => {
   }
 });
 
-/**
- * ---------------------------
- * USER DETAILS
- * ---------------------------
- */
+// USER DETAILS
 app.get("/user/:id", async (req, res) => {
   try {
     const userId = req.params.id;
@@ -233,11 +205,7 @@ app.get("/user/:id", async (req, res) => {
   }
 });
 
-/**
- * ---------------------------
- * PHOTOS OF USER
- * ---------------------------
- */
+//PHOTOS OF USER
 app.get("/photosOfUser/:id", async (req, res) => {
   try {
     const userId = req.params.id;
@@ -250,8 +218,9 @@ app.get("/photosOfUser/:id", async (req, res) => {
       .select("-__v")
       .lean();
 
+    // Return empty array if no photos
     if (!photos || photos.length === 0) {
-      return res.status(404).send({ error: "Photos not found" });
+      return res.status(200).send([]);  // <-- changed from 404
     }
 
     const commentUserIds = [];
@@ -304,11 +273,7 @@ app.get("/photosOfUser/:id", async (req, res) => {
   }
 });
 
-/**
- * ---------------------------
- * ADD COMMENT
- * ---------------------------
- */
+//ADD COMMENT
 app.post("/commentsOfPhoto/:photo_id", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -342,11 +307,7 @@ app.post("/commentsOfPhoto/:photo_id", async (req, res) => {
   }
 });
 
-/**
- * ---------------------------
- * TEST ROUTE
- * ---------------------------
- */
+// TEST ROUTE
 app.get("/test/info", async (req, res) => {
   try {
     const info = await SchemaInfo.findOne().lean();
@@ -362,11 +323,7 @@ app.get("/test/info", async (req, res) => {
   }
 });
 
-/**
- * ---------------------------
- * PHOTO UPLOAD
- * ---------------------------
- */
+//PHOTO UPLOAD
 app.use(
   "/images",
   express.static(path.join(dirname(fileURLToPath(import.meta.url)), "images"))
@@ -410,11 +367,7 @@ app.post("/photos/new", (req, res) => {
   });
 });
 
-/**
- * ---------------------------
- * DB CONNECTION
- * ---------------------------
- */
+// DB CONNECTION
 mongoose.Promise = bluebird;
 mongoose.set("strictQuery", false);
 

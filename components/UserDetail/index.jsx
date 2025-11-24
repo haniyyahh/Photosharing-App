@@ -10,13 +10,13 @@ import './styles.css';
 import useZustandStore from '../../zustandStore';
 
 function UserDetail() {
-  // Get userId from URL instead of props
+  // get userId from URL instead of props
   const { userId } = useParams();
 
-  // Sync state to Zustand
+  // sync state to Zustand
   const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
 
-  // Keep global state updated when URL changes
+  // keep global state updated when URL changes
   useEffect(() => {
     if (userId) {
       setSelectedUserId(userId);
