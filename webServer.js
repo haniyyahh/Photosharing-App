@@ -367,6 +367,43 @@ app.post("/photos/new", (req, res) => {
   });
 });
 
+// GET COMMENTS
+app.get("/commentsByUser/:id", async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).send({ error: "Invalid user id format" });
+    }
+
+    // Find all photos that contain comments by this user
+    const photos = await Photo.find({ "comments.user_id": userId })
+      .select("file_name date_time comments")
+      .lean();
+
+    const userComments = [];
+
+    photos.forEach((photo) => {
+      photo.comments.forEach((c) => {
+        if (c.user_id && c.user_id.toString() === userId) {
+          userComments.push({
+            photo_id: photo._id.toString(),
+            file_name: photo.file_name,
+            photo_date: photo.date_time,
+            comment: c.comment,
+            comment_date: c.date_time,
+          });
+        }
+      });
+    });
+
+    return res.status(200).send(userComments);
+  } catch (err) {
+    console.error("Error in /commentsByUser/:id:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
+
 // DB CONNECTION
 mongoose.Promise = bluebird;
 mongoose.set("strictQuery", false);
