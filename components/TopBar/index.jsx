@@ -39,7 +39,7 @@ function TopBar() {
   // Fetch user data with React Query (only if logged in and userId exists)
   const { data: userData, isLoading, isError } = useQuery({
     queryKey: ['user', userId],
-    queryFn: () => axios.get(`http://localhost:3001/user/${userId}`).then(res => res.data),
+    queryFn: () => api.get(`http://localhost:3001/user/${userId}`).then(res => res.data),
     enabled: !!userId && userIsLoggedIn,
   });
 
