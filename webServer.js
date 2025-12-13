@@ -442,6 +442,52 @@ app.get("/commentsByUser/:id", async (req, res) => {
   }
 });
 
+// LIKE / UNLIKE PHOTOS
+app.post("/photos/:photoId/like", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
+
+    const { photoId } = req.params;
+    const userId = req.session.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(photoId)) {
+      return res.status(400).send({ error: "Invalid photo id format" });
+    }
+
+    const photo = await Photo.findById(photoId);
+    if (!photo) {
+      return res.status(404).send({ error: "Photo not found" });
+    }
+
+    const alreadyLiked = photo.likes.some(
+      (id) => id.toString() === userId
+    );
+
+    if (alreadyLiked) {
+      // UNLIKE
+      photo.likes = photo.likes.filter(
+        (id) => id.toString() !== userId
+      );
+    } else {
+      // LIKE
+      photo.likes.push(userId);
+    }
+
+    await photo.save();
+
+    return res.status(200).send({
+      photoId: photo._id.toString(),
+      likesCount: photo.likes.length,
+      likedByUser: !alreadyLiked,
+    });
+  } catch (err) {
+    console.error("Error in POST /photos/:photoId/like:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
+
 // DB CONNECTION
 mongoose.Promise = bluebird;
 mongoose.set("strictQuery", false);

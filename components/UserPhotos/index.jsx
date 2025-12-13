@@ -12,7 +12,11 @@ import { NavigateBefore, NavigateNext } from "@mui/icons-material";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchPhotosByUser, addCommentToPhoto } from "../../api";
+import {
+  fetchPhotosByUser,
+  addCommentToPhoto,
+  likePhoto,
+} from "../../api";
 
 import useZustandStore from "../../zustandStore";
 import "./styles.css";
@@ -30,6 +34,8 @@ function UserPhotos({ userId, photoId = null }) {
   const [newComment, setNewComment] = useState("");
   const initialized = React.useRef(false);
 
+  const loggedInUser = useZustandStore((s) => s.currentUser);
+
   // React Query fetch
   const {
     data: userPhotos = [],
@@ -42,12 +48,29 @@ function UserPhotos({ userId, photoId = null }) {
     enabled: !!userId,
   });
 
+  // After fetching userPhotos
+  const sortedPhotos = [...userPhotos].sort((a, b) => {
+    const likesDiff = (b.likes?.length || 0) - (a.likes?.length || 0);
+    if (likesDiff !== 0) return likesDiff;
+
+    // If likes are equal, compare timestamps
+    return new Date(b.date_time) - new Date(a.date_time);
+  });
+
   // react Query mutation to ADD comment
   const commentMutation = useMutation({
     mutationFn: ({ photo_id, comment }) => addCommentToPhoto(photo_id, comment),
     onSuccess: () => {
       queryClient.invalidateQueries(["photosOfUser", userId]);
       setNewComment("");
+    },
+  });
+
+  // react Query mutation to LIKE photo
+  const likeMutation = useMutation({
+    mutationFn: (photoId) => likePhoto(photoId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["photosOfUser", userId]);
     },
   });
 
@@ -94,7 +117,7 @@ function UserPhotos({ userId, photoId = null }) {
   const handleAddComment = () => {
     if (!newComment.trim()) return;
 
-    const photo = userPhotos[currentPhotoIndex];
+    const photo = sortedPhotos[currentPhotoIndex];
 
     commentMutation.mutate({
       photo_id: photo._id,
@@ -113,7 +136,7 @@ function UserPhotos({ userId, photoId = null }) {
 
   // ADVANCED MODE (with comment input UI)
   if (advancedFeaturesEnabled) {
-    const photo = userPhotos[currentPhotoIndex];
+    const photo = sortedPhotos[currentPhotoIndex];
 
     return (
       <Box sx={{ width: "100%", maxWidth: "100%", overflow: "hidden" }}>
@@ -165,6 +188,21 @@ function UserPhotos({ userId, photoId = null }) {
               <Typography variant="body2" color="textSecondary">
                 Taken: {new Date(photo.date_time).toLocaleString()}
               </Typography>
+            
+              <Box sx={{ mt: 1, mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
+                <Button
+                  variant={photo.likes?.includes(loggedInUser?._id) ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => likeMutation.mutate(photo._id)}
+                  disabled={!loggedInUser || likeMutation.isLoading}
+                >
+                  {photo.likes?.includes(loggedInUser?._id) ? "Unlike" : "Like"}
+                </Button>
+
+                <Typography variant="body2" color="textSecondary">
+                  {photo.likes?.length || 0} likes
+                </Typography>
+              </Box>
 
               <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                 Comments:
@@ -229,7 +267,7 @@ function UserPhotos({ userId, photoId = null }) {
   // NON-ADVANCED MODE
   return (
     <Grid container spacing={2}>
-      {userPhotos.map((photo) => (
+      {sortedPhotos.map((photo) => (
         <Grid item xs={12} sm={6} md={4} key={photo._id}>
           <Card>
             <CardMedia
@@ -242,6 +280,21 @@ function UserPhotos({ userId, photoId = null }) {
               <Typography variant="body2" color="textSecondary">
                 Taken: {new Date(photo.date_time).toLocaleString()}
               </Typography>
+
+              <Box sx={{ mt: 1, display: "flex", alignItems: "center", gap: 1 }}>
+                <Button
+                  size="small"
+                  variant={photo.likes?.includes(loggedInUser?._id) ? "contained" : "outlined"}
+                  onClick={() => likeMutation.mutate(photo._id)}
+                  disabled={!loggedInUser || likeMutation.isLoading}
+                >
+                  {photo.likes?.includes(loggedInUser?._id) ? "Unlike" : "Like"}
+                </Button>
+
+                <Typography variant="caption">
+                  {photo.likes?.length || 0} likes
+                </Typography>
+              </Box>
 
               {photo.comments?.length > 0 ? (
                 photo.comments.map((c) => (

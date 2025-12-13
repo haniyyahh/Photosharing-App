@@ -105,6 +105,12 @@ export async function addCommentToPhoto(photoId, comment) {
   return res.data;
 }
 
+// LIKE a photo
+export const likePhoto = async (photoId) => {
+  const res = await api.post(`/photos/${photoId}/like`);
+  return res.data;
+};
+
 // Photo Uploading w Multer: POST Request
 // POST /photos/new
 export async function uploadPhoto(formData) {
