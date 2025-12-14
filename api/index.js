@@ -148,4 +148,10 @@ export async function deleteUser(userId) {
   return response.data;
 }
 
+// === FETCHING ACTIVITIES FOR ACTIVITY FEED ===
+export async function fetchActivities() {
+     const res = await api.get('/activities');
+     return res.data;
+   }
+
 export default api;
