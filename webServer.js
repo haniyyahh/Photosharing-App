@@ -17,6 +17,7 @@ import { Server } from "socket.io";
 import User from "./schema/user.js";
 import Photo from "./schema/photo.js";
 import SchemaInfo from "./schema/schemaInfo.js";
+import Activity from "./schema/activity.js";
 
 const portno = 3001;
 const app = express();
@@ -84,6 +85,48 @@ io.on("connection", (socket) => {
   });
 });
 
+// ============================================
+// HELPER FUNCTION: Create Activity with Socket.IO
+// ============================================
+async function createActivity(activityType, userId, photoId = null, fileName = null) {
+  try {
+    const newActivity = await Activity.create({
+      activity_type: activityType,
+      user_id: userId,
+      photo_id: photoId,
+      file_name: fileName,
+      date_time: new Date()
+    });
+
+    // Fetch user info for the activity
+    const user = await User.findById(userId, '_id first_name last_name').lean();
+
+    // Format activity for socket emission
+    const activityData = {
+      _id: newActivity._id.toString(),
+      activity_type: newActivity.activity_type,
+      date_time: newActivity.date_time,
+      photo_id: newActivity.photo_id ? newActivity.photo_id.toString() : null,
+      file_name: newActivity.file_name,
+      user: user ? {
+        _id: user._id.toString(),
+        first_name: user.first_name,
+        last_name: user.last_name
+      } : null
+    };
+
+    // Emit real-time update to all connected clients
+    io.emit('new_activity', activityData);
+
+    console.log('Activity created and emitted:', activityType);
+  } catch (err) {
+    console.error('Error creating activity:', err);
+  }
+}
+
+// ============================================
+// AUTHENTICATION ROUTES
+// ============================================
 
 // LOGIN
 app.post("/admin/login", async (req, res) => {
@@ -105,6 +148,9 @@ app.post("/admin/login", async (req, res) => {
       first_name: user.first_name,
     };
 
+    // Log activity
+    await createActivity('USER_LOGIN', user._id.toString());
+
     return res.status(200).send({
       _id: user._id.toString(),
       first_name: user.first_name,
@@ -122,6 +168,11 @@ app.post("/admin/logout", async (req, res) => {
   }
 
   try {
+    const userId = req.session.user._id;
+    
+    // Log activity BEFORE destroying session
+    await createActivity('USER_LOGOUT', userId);
+
     await new Promise((resolve, reject) => {
       req.session.destroy(err => (err ? reject(err) : resolve()));
     });
@@ -132,7 +183,7 @@ app.post("/admin/logout", async (req, res) => {
   }
 });
 
-// CREATE USER
+// CREATE USER (REGISTER)
 app.post("/user", async (req, res) => {
   try {
     const {
@@ -147,8 +198,7 @@ app.post("/user", async (req, res) => {
 
     if (!login_name || !password || !first_name || !last_name) {
       return res.status(400).send({
-        error:
-          "Required fields: login_name, password, first_name, last_name",
+        error: "Required fields: login_name, password, first_name, last_name",
       });
     }
 
@@ -167,6 +217,9 @@ app.post("/user", async (req, res) => {
       occupation: occupation || "",
     });
 
+    // Log activity
+    await createActivity('USER_REGISTER', newUser._id.toString());
+
     return res.status(200).send({
       login_name: newUser.login_name,
       user_id: newUser._id.toString(),
@@ -176,6 +229,10 @@ app.post("/user", async (req, res) => {
     return res.status(500).send({ error: "Internal server error" });
   }
 });
+
+// ============================================
+// USER ROUTES
+// ============================================
 
 // USER LIST
 app.get("/user/list", async (req, res) => {
@@ -226,7 +283,131 @@ app.get("/user/:id", async (req, res) => {
   }
 });
 
-//PHOTOS OF USER
+// USER STATS (most recent photo, most commented photo)
+app.get("/user/:userId/stats", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).send({ error: "Invalid user id format" });
+    }
+
+    const userPhotos = await Photo.find({ user_id: userId })
+      .select("_id file_name date_time comments")
+      .lean();
+
+    if (!userPhotos || userPhotos.length === 0) {
+      return res.status(200).send({
+        mostRecentPhoto: null,
+        mostCommentedPhoto: null,
+      });
+    }
+
+    const mostRecentPhoto = userPhotos.reduce((latest, photo) => {
+      return new Date(photo.date_time) > new Date(latest.date_time) 
+        ? photo 
+        : latest;
+    });
+
+    const mostCommentedPhoto = userPhotos.reduce((mostCommented, photo) => {
+      const photoCommentCount = photo.comments?.length || 0;
+      const mostCommentedCount = mostCommented.comments?.length || 0;
+      return photoCommentCount > mostCommentedCount ? photo : mostCommented;
+    });
+
+    const response = {
+      mostRecentPhoto: {
+        _id: mostRecentPhoto._id.toString(),
+        file_name: mostRecentPhoto.file_name,
+        date_time: mostRecentPhoto.date_time,
+      },
+      mostCommentedPhoto: {
+        _id: mostCommentedPhoto._id.toString(),
+        file_name: mostCommentedPhoto.file_name,
+        comment_count: mostCommentedPhoto.comments?.length || 0,
+      },
+    };
+
+    return res.status(200).send(response);
+  } catch (err) {
+    console.error("Error in /user/:userId/stats:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+// DELETE USER ACCOUNT
+app.delete("/user/:userId", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
+
+    const { userId } = req.params;
+    const currentUserId = req.session.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).send({ error: "Invalid user id format" });
+    }
+
+    if (userId !== currentUserId) {
+      return res.status(403).send({ error: "You can only delete your own account" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).send({ error: "User not found" });
+    }
+
+    const userPhotos = await Photo.find({ user_id: userId });
+    
+    for (const photo of userPhotos) {
+      const filePath = path.join(
+        dirname(fileURLToPath(import.meta.url)), 
+        "images", 
+        photo.file_name
+      );
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (fileErr) {
+        console.error("Error deleting file:", fileErr);
+      }
+    }
+
+    await Photo.deleteMany({ user_id: userId });
+
+    await Photo.updateMany(
+      { "comments.user_id": userId },
+      { $pull: { comments: { user_id: userId } } }
+    );
+
+    await Photo.updateMany(
+      { likes: userId },
+      { $pull: { likes: userId } }
+    );
+
+    await User.findByIdAndDelete(userId);
+
+    await new Promise((resolve, reject) => {
+      req.session.destroy((err) => (err ? reject(err) : resolve()));
+    });
+
+    return res.status(200).send({ 
+      success: true, 
+      message: "User account deleted successfully" 
+    });
+  } catch (err) {
+    console.error("Error in DELETE /user/:userId:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+// ============================================
+// PHOTO ROUTES
+// ============================================
+
+// PHOTOS OF USER
 app.get("/photosOfUser/:id", async (req, res) => {
   try {
     const userId = req.params.id;
@@ -239,9 +420,8 @@ app.get("/photosOfUser/:id", async (req, res) => {
       .select("-__v")
       .lean();
 
-    // Return empty array if no photos
     if (!photos || photos.length === 0) {
-      return res.status(200).send([]);  // <-- changed from 404
+      return res.status(200).send([]);
     }
 
     const commentUserIds = [];
@@ -294,57 +474,7 @@ app.get("/photosOfUser/:id", async (req, res) => {
   }
 });
 
-//ADD COMMENT
-app.post("/commentsOfPhoto/:photo_id", async (req, res) => {
-  try {
-    if (!req.session.user) {
-      return res.status(401).send({ error: "Unauthorized" });
-    }
-
-    const { photo_id } = req.params;
-    const { comment } = req.body;
-
-    if (!comment || comment.trim() === "") {
-      return res.status(400).send({ error: "Comment cannot be empty" });
-    }
-
-    const photo = await Photo.findById(photo_id);
-    if (!photo) {
-      return res.status(404).send({ error: "Photo not found" });
-    }
-
-    photo.comments.push({
-      comment: comment.trim(),
-      user_id: req.session.user._id,
-      date_time: new Date(),
-    });
-
-    await photo.save();
-
-    return res.status(200).send(photo);
-  } catch (err) {
-    console.error("Error in POST /commentsOfPhoto:", err);
-    return res.status(500).send({ error: "Internal server error" });
-  }
-});
-
-// TEST ROUTE
-app.get("/test/info", async (req, res) => {
-  try {
-    const info = await SchemaInfo.findOne().lean();
-
-    if (!info) {
-      return res.status(404).send({ error: "SchemaInfo not found" });
-    }
-
-    return res.status(200).send(info);
-  } catch (err) {
-    console.error("Error in /test/info:", err);
-    return res.status(500).send({ error: "Internal server error" });
-  }
-});
-
-//PHOTO UPLOAD
+// PHOTO UPLOAD
 app.use(
   "/images",
   express.static(path.join(dirname(fileURLToPath(import.meta.url)), "images"))
@@ -379,6 +509,14 @@ app.post("/photos/new", (req, res) => {
           user_id: req.session.user._id,
         });
 
+        // Log activity with Socket.IO
+        await createActivity(
+          'PHOTO_UPLOAD',
+          req.session.user._id,
+          newPhoto._id.toString(),
+          filename
+        );
+
         return res.status(200).send(newPhoto);
       } catch (dbErr) {
         console.error("DB save error:", dbErr);
@@ -388,7 +526,104 @@ app.post("/photos/new", (req, res) => {
   });
 });
 
-// GET COMMENTS
+// LIKE / UNLIKE PHOTOS
+app.post("/photos/:photoId/like", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
+
+    const { photoId } = req.params;
+    const userId = req.session.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(photoId)) {
+      return res.status(400).send({ error: "Invalid photo id format" });
+    }
+
+    const photo = await Photo.findById(photoId);
+    if (!photo) {
+      return res.status(404).send({ error: "Photo not found" });
+    }
+
+    const alreadyLiked = photo.likes.some(
+      (id) => id.toString() === userId
+    );
+
+    if (alreadyLiked) {
+      photo.likes = photo.likes.filter(
+        (id) => id.toString() !== userId
+      );
+    } else {
+      photo.likes.push(userId);
+    }
+
+    await photo.save();
+
+    // emit real-time update
+    io.emit("photo_likes_updated", {
+      photoId: photo._id.toString(),
+    });
+
+    return res.status(200).send({
+      photoId: photo._id.toString(),
+      likesCount: photo.likes.length,
+      likedByUser: !alreadyLiked,
+    });
+  } catch (err) {
+    console.error("Error in POST /photos/:photoId/like:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+// DELETE A PHOTO
+app.delete("/photos/:photoId", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
+
+    const { photoId } = req.params;
+    const currentUserId = req.session.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(photoId)) {
+      return res.status(400).send({ error: "Invalid photo id format" });
+    }
+
+    const photo = await Photo.findById(photoId);
+    if (!photo) {
+      return res.status(404).send({ error: "Photo not found" });
+    }
+
+    if (photo.user_id.toString() !== currentUserId) {
+      return res.status(403).send({ error: "You can only delete your own photos" });
+    }
+
+    const filePath = path.join(dirname(fileURLToPath(import.meta.url)), "images", photo.file_name);
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (fileErr) {
+      console.error("Error deleting file:", fileErr);
+    }
+
+    await Photo.findByIdAndDelete(photoId);
+
+    return res.status(200).send({ 
+      success: true, 
+      message: "Photo deleted successfully" 
+    });
+  } catch (err) {
+    console.error("Error in DELETE /photos/:photoId:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+// ============================================
+// COMMENT ROUTES
+// ============================================
+
+// GET COMMENTS BY USER
 app.get("/commentsByUser/:id", async (req, res) => {
   try {
     const userId = req.params.id;
@@ -397,7 +632,6 @@ app.get("/commentsByUser/:id", async (req, res) => {
       return res.status(400).send({ error: "Invalid user id format" });
     }
 
-    // Find all photos that contain comments by this user
     const photos = await Photo.find({ "comments.user_id": userId })
       .select("file_name date_time comments")
       .lean();
@@ -425,58 +659,48 @@ app.get("/commentsByUser/:id", async (req, res) => {
   }
 });
 
-// LIKE / UNLIKE PHOTOS
-app.post("/photos/:photoId/like", async (req, res) => {
+// ADD COMMENT
+app.post("/commentsOfPhoto/:photo_id", async (req, res) => {
   try {
     if (!req.session.user) {
       return res.status(401).send({ error: "Unauthorized" });
     }
 
-    const { photoId } = req.params;
-    const userId = req.session.user._id;
+    const { photo_id } = req.params;
+    const { comment } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(photoId)) {
-      return res.status(400).send({ error: "Invalid photo id format" });
+    if (!comment || comment.trim() === "") {
+      return res.status(400).send({ error: "Comment cannot be empty" });
     }
 
-    const photo = await Photo.findById(photoId);
+    const photo = await Photo.findById(photo_id);
     if (!photo) {
       return res.status(404).send({ error: "Photo not found" });
     }
 
-    const alreadyLiked = photo.likes.some(
-      (id) => id.toString() === userId
-    );
-
-    if (alreadyLiked) {
-      // UNLIKE
-      photo.likes = photo.likes.filter(
-        (id) => id.toString() !== userId
-      );
-    } else {
-      // LIKE
-      photo.likes.push(userId);
-    }
+    photo.comments.push({
+      comment: comment.trim(),
+      user_id: req.session.user._id,
+      date_time: new Date(),
+    });
 
     await photo.save();
 
-    // emit real-time update
-    io.emit("photo_likes_updated", {
-      photoId: photo._id.toString(),
-    });
+    // Log activity with Socket.IO
+    await createActivity(
+      'COMMENT_ADDED',
+      req.session.user._id,
+      photo._id.toString(),
+      photo.file_name
+    );
 
-    return res.status(200).send({
-      photoId: photo._id.toString(),
-      likesCount: photo.likes.length,
-      likedByUser: !alreadyLiked,
-    });
+    return res.status(200).send(photo);
   } catch (err) {
-    console.error("Error in POST /photos/:photoId/like:", err);
+    console.error("Error in POST /commentsOfPhoto:", err);
     return res.status(500).send({ error: "Internal server error" });
   }
 });
 
-// ======== DELETING COMMENTS/PHOTOS/ACCOUNT ===========
 // DELETE A COMMENT
 app.delete("/comments/:commentId/photo/:photoId", async (req, res) => {
   try {
@@ -504,12 +728,10 @@ app.delete("/comments/:commentId/photo/:photoId", async (req, res) => {
       return res.status(404).send({ error: "Comment not found" });
     }
 
-    // Check ownership
     if (photo.comments[commentIndex].user_id.toString() !== currentUserId) {
       return res.status(403).send({ error: "You can only delete your own comments" });
     }
 
-    // deletion occurs here
     photo.comments.splice(commentIndex, 1);
     await photo.save();
 
@@ -523,128 +745,75 @@ app.delete("/comments/:commentId/photo/:photoId", async (req, res) => {
   }
 });
 
-// DELETE A PHOTO
-app.delete("/photos/:photoId", async (req, res) => {
+// ============================================
+// ACTIVITY FEED ROUTE
+// ============================================
+
+app.get("/activities", async (req, res) => {
   try {
     if (!req.session.user) {
       return res.status(401).send({ error: "Unauthorized" });
     }
 
-    const { photoId } = req.params;
-    const currentUserId = req.session.user._id;
+    const activities = await Activity.find({})
+      .sort({ date_time: -1 })
+      .limit(5)
+      .lean();
 
-    if (!mongoose.Types.ObjectId.isValid(photoId)) {
-      return res.status(400).send({ error: "Invalid photo id format" });
-    }
+    const userIds = activities.map(a => a.user_id);
+    const users = await User.find(
+      { _id: { $in: userIds } },
+      '_id first_name last_name'
+    ).lean();
 
-    const photo = await Photo.findById(photoId);
-    if (!photo) {
-      return res.status(404).send({ error: "Photo not found" });
-    }
-
-    // Check ownership
-    if (photo.user_id.toString() !== currentUserId) {
-      return res.status(403).send({ error: "You can only delete your own photos" });
-    }
-
-    // Delete physical file
-    const filePath = path.join(dirname(fileURLToPath(import.meta.url)), "images", photo.file_name);
-    try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    } catch (fileErr) {
-      console.error("Error deleting file:", fileErr);
-    }
-
-    await Photo.findByIdAndDelete(photoId);
-
-    return res.status(200).send({ 
-      success: true, 
-      message: "Photo deleted successfully" 
+    const userMap = {};
+    users.forEach(u => {
+      userMap[u._id.toString()] = u;
     });
+
+    const enhancedActivities = activities.map(activity => ({
+      _id: activity._id.toString(),
+      activity_type: activity.activity_type,
+      date_time: activity.date_time,
+      photo_id: activity.photo_id ? activity.photo_id.toString() : null,
+      file_name: activity.file_name,
+      user: userMap[activity.user_id.toString()] ? {
+        _id: activity.user_id.toString(),
+        first_name: userMap[activity.user_id.toString()].first_name,
+        last_name: userMap[activity.user_id.toString()].last_name
+      } : null
+    }));
+
+    return res.status(200).send(enhancedActivities);
   } catch (err) {
-    console.error("Error in DELETE /photos/:photoId:", err);
+    console.error("Error in /activities:", err);
     return res.status(500).send({ error: "Internal server error" });
   }
 });
 
-// DELETE USER ACCOUNT
-app.delete("/user/:userId", async (req, res) => {
+// ============================================
+// TEST ROUTE
+// ============================================
+
+app.get("/test/info", async (req, res) => {
   try {
-    if (!req.session.user) {
-      return res.status(401).send({ error: "Unauthorized" });
+    const info = await SchemaInfo.findOne().lean();
+
+    if (!info) {
+      return res.status(404).send({ error: "SchemaInfo not found" });
     }
 
-    const { userId } = req.params;
-    const currentUserId = req.session.user._id;
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).send({ error: "Invalid user id format" });
-    }
-
-    // Check that user can only delete their own account
-    if (userId !== currentUserId) {
-      return res.status(403).send({ error: "You can only delete your own account" });
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).send({ error: "User not found" });
-    }
-
-    // 1. Delete all photos by this user (and their files)
-    const userPhotos = await Photo.find({ user_id: userId });
-    
-    for (const photo of userPhotos) {
-      const filePath = path.join(
-        dirname(fileURLToPath(import.meta.url)), 
-        "images", 
-        photo.file_name
-      );
-      try {
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (fileErr) {
-        console.error("Error deleting file:", fileErr);
-      }
-    }
-
-    await Photo.deleteMany({ user_id: userId });
-
-    // 2. Delete all comments made by this user
-    await Photo.updateMany(
-      { "comments.user_id": userId },
-      { $pull: { comments: { user_id: userId } } }
-    );
-
-    // 3. Remove user from all photo likes
-    await Photo.updateMany(
-      { likes: userId },
-      { $pull: { likes: userId } }
-    );
-
-    // 4. Delete the user document
-    await User.findByIdAndDelete(userId);
-
-    // 5. Destroy the session
-    await new Promise((resolve, reject) => {
-      req.session.destroy((err) => (err ? reject(err) : resolve()));
-    });
-
-    return res.status(200).send({ 
-      success: true, 
-      message: "User account deleted successfully" 
-    });
+    return res.status(200).send(info);
   } catch (err) {
-    console.error("Error in DELETE /user/:userId:", err);
+    console.error("Error in /test/info:", err);
     return res.status(500).send({ error: "Internal server error" });
   }
 });
 
+// ============================================
+// DATABASE CONNECTION
+// ============================================
 
-// DB CONNECTION
 mongoose.Promise = bluebird;
 mongoose.set("strictQuery", false);
 
@@ -653,11 +822,8 @@ mongoose
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log(`MongoDB connected. Server running at http://localhost:${portno}`)
-  )
+  .then(() => console.log(`MongoDB connected. Server running at http://localhost:${portno}`))
   .catch((err) => console.error("Failed to connect to MongoDB:", err));
-
-// no longer listening to app via `app.listen(portno);`
 
 server.listen(portno, () => {
   console.log(`Server running at http://localhost:${portno}`);
