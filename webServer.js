@@ -11,6 +11,8 @@ import path, { dirname } from 'path';
 import session from 'express-session';
 import multer from "multer";
 import fs from "fs";
+import http from "http";
+import { Server } from "socket.io";
 
 import User from "./schema/user.js";
 import Photo from "./schema/photo.js";
@@ -63,6 +65,25 @@ app.use((req, res, next) => {
 
   return next();
 });
+
+// SOCKET.IO SETUP
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    credentials: true,
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("Socket connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("Socket disconnected:", socket.id);
+  });
+});
+
 
 // LOGIN
 app.post("/admin/login", async (req, res) => {
@@ -273,44 +294,6 @@ app.get("/photosOfUser/:id", async (req, res) => {
   }
 });
 
-// FETCHING ALL COMMENTS OWNED BY A USER
-app.get("/commentsByUser/:userId", async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).send({ error: "Invalid user id format" });
-    }
-
-    // Find all photos that have comments by this user
-    const photos = await Photo.find({ "comments.user_id": userId }).lean();
-
-    const userComments = [];
-
-    photos.forEach(photo => {
-      if (photo.comments) {
-        photo.comments.forEach(comment => {
-          if (comment.user_id && comment.user_id.toString() === userId) {
-            userComments.push({
-              ...comment,
-              photoId: photo._id.toString(),
-              photoUrl: photo.file_name,
-              photoUserId: photo.user_id.toString(),
-            });
-          }
-        });
-      }
-    });
-
-    return res.status(200).send(userComments);
-  } catch (err) {
-    console.error("Error in /commentsByUser/:userId:", err);
-    return res.status(500).send({ error: "Internal server error" });
-  }
-});
-
-
-
-
 //ADD COMMENT
 app.post("/commentsOfPhoto/:photo_id", async (req, res) => {
   try {
@@ -476,6 +459,11 @@ app.post("/photos/:photoId/like", async (req, res) => {
     }
 
     await photo.save();
+
+    // emit real-time update
+    io.emit("photo_likes_updated", {
+      photoId: photo._id.toString(),
+    });
 
     return res.status(200).send({
       photoId: photo._id.toString(),
@@ -669,4 +657,8 @@ mongoose
   )
   .catch((err) => console.error("Failed to connect to MongoDB:", err));
 
-app.listen(portno);
+// no longer listening to app via `app.listen(portno);`
+
+server.listen(portno, () => {
+  console.log(`Server running at http://localhost:${portno}`);
+});
