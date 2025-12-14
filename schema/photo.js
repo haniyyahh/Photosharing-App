@@ -35,6 +35,13 @@ const photoSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+
+  // Story 3 Implementation
+  sharedWith: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: "User",
+    default: null,   // null = visible to everyone
+  },
 });
 
 /**

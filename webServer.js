@@ -235,9 +235,19 @@ app.get("/photosOfUser/:id", async (req, res) => {
       return res.status(400).send({ error: "Invalid user id format" });
     }
 
-    const photos = await Photo.find({ user_id: userId })
-      .select("-__v")
-      .lean();
+    // visibility logic
+    const currentUserId = req.session.user._id;
+
+    const photos = await Photo.find({
+      user_id: userId,
+      $or: [
+        { sharedWith: null },           // visible to everyone
+        { user_id: currentUserId },     // owner
+        { sharedWith: currentUserId },  // explicitly shared
+      ],
+    })
+    .select("-__v")
+    .lean();
 
     // Return empty array if no photos
     if (!photos || photos.length === 0) {
@@ -373,10 +383,22 @@ app.post("/photos/new", (req, res) => {
       }
 
       try {
+        // handles sharing permissions
+        let sharedWith = null; // null = visible to everyone
+
+        if (req.body.sharedWith) {
+          try {
+            sharedWith = JSON.parse(req.body.sharedWith); // [] or [userIds]
+          } catch (e) {
+            return res.status(400).send({ error: "Invalid sharedWith format" });
+          }
+        }
+
         const newPhoto = await Photo.create({
           file_name: filename,
           date_time: new Date(),
           user_id: req.session.user._id,
+          sharedWith,
         });
 
         return res.status(200).send(newPhoto);

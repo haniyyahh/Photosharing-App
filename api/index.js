@@ -116,7 +116,7 @@ export const likePhoto = async (photoId) => {
 export async function uploadPhoto(formData) {
   const response = await fetch("http://localhost:3001/photos/new", {
     method: "POST",
-    credentials: "include", // important for session login
+    credentials: "include",
     body: formData,
   });
 
