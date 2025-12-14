@@ -25,6 +25,8 @@ import useZustandStore from "../../zustandStore";
 import ConfirmDialog from "../ConfirmDialog";
 import "./styles.css";
 
+import socket from "../../socket";
+
 function UserPhotos({ userId, photoId = null }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -139,6 +141,18 @@ function UserPhotos({ userId, photoId = null }) {
     userId,
     navigate,
   ]);
+
+  useEffect(() => {
+    const handleLikesUpdate = () => {
+      queryClient.invalidateQueries(["photosOfUser", userId]);
+    };
+
+    socket.on("photo_likes_updated", handleLikesUpdate);
+
+    return () => {
+      socket.off("photo_likes_updated", handleLikesUpdate);
+    };
+  }, [queryClient, userId]);
 
   const handlePrevious = () => {
     if (currentPhotoIndex > 0) {
