@@ -488,6 +488,174 @@ app.post("/photos/:photoId/like", async (req, res) => {
   }
 });
 
+// ======== DELETING COMMENTS/PHOTOS/ACCOUNT ===========
+// DELETE A COMMENT
+app.delete("/comments/:commentId/photo/:photoId", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
+
+    const { commentId, photoId } = req.params;
+    const currentUserId = req.session.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(photoId)) {
+      return res.status(400).send({ error: "Invalid photo id format" });
+    }
+
+    const photo = await Photo.findById(photoId);
+    if (!photo) {
+      return res.status(404).send({ error: "Photo not found" });
+    }
+
+    const commentIndex = photo.comments.findIndex(
+      (c) => c._id.toString() === commentId
+    );
+
+    if (commentIndex === -1) {
+      return res.status(404).send({ error: "Comment not found" });
+    }
+
+    // Check ownership
+    if (photo.comments[commentIndex].user_id.toString() !== currentUserId) {
+      return res.status(403).send({ error: "You can only delete your own comments" });
+    }
+
+    // deletion occurs here
+    photo.comments.splice(commentIndex, 1);
+    await photo.save();
+
+    return res.status(200).send({ 
+      success: true, 
+      message: "Comment deleted successfully" 
+    });
+  } catch (err) {
+    console.error("Error in DELETE /comments/:commentId/photo/:photoId:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+// DELETE A PHOTO
+app.delete("/photos/:photoId", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
+
+    const { photoId } = req.params;
+    const currentUserId = req.session.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(photoId)) {
+      return res.status(400).send({ error: "Invalid photo id format" });
+    }
+
+    const photo = await Photo.findById(photoId);
+    if (!photo) {
+      return res.status(404).send({ error: "Photo not found" });
+    }
+
+    // Check ownership
+    if (photo.user_id.toString() !== currentUserId) {
+      return res.status(403).send({ error: "You can only delete your own photos" });
+    }
+
+    // Delete physical file
+    const filePath = path.join(dirname(fileURLToPath(import.meta.url)), "images", photo.file_name);
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (fileErr) {
+      console.error("Error deleting file:", fileErr);
+    }
+
+    await Photo.findByIdAndDelete(photoId);
+
+    return res.status(200).send({ 
+      success: true, 
+      message: "Photo deleted successfully" 
+    });
+  } catch (err) {
+    console.error("Error in DELETE /photos/:photoId:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+// DELETE USER ACCOUNT
+app.delete("/user/:userId", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
+
+    const { userId } = req.params;
+    const currentUserId = req.session.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).send({ error: "Invalid user id format" });
+    }
+
+    // Check that user can only delete their own account
+    if (userId !== currentUserId) {
+      return res.status(403).send({ error: "You can only delete your own account" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).send({ error: "User not found" });
+    }
+
+    // 1. Delete all photos by this user (and their files)
+    const userPhotos = await Photo.find({ user_id: userId });
+    
+    for (const photo of userPhotos) {
+      const filePath = path.join(
+        dirname(fileURLToPath(import.meta.url)), 
+        "images", 
+        photo.file_name
+      );
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (fileErr) {
+        console.error("Error deleting file:", fileErr);
+      }
+    }
+
+    await Photo.deleteMany({ user_id: userId });
+
+    // 2. Delete all comments made by this user
+    await Photo.updateMany(
+      { "comments.user_id": userId },
+      { $pull: { comments: { user_id: userId } } }
+    );
+
+    // 3. Remove user from all photo likes
+    await Photo.updateMany(
+      { likes: userId },
+      { $pull: { likes: userId } }
+    );
+
+    // 4. Delete the user document
+    await User.findByIdAndDelete(userId);
+
+    // 5. Destroy the session
+    await new Promise((resolve, reject) => {
+      req.session.destroy((err) => (err ? reject(err) : resolve()));
+    });
+
+    return res.status(200).send({ 
+      success: true, 
+      message: "User account deleted successfully" 
+    });
+  } catch (err) {
+    console.error("Error in DELETE /user/:userId:", err);
+    return res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+
 // DB CONNECTION
 mongoose.Promise = bluebird;
 mongoose.set("strictQuery", false);

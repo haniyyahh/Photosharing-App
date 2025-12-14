@@ -1,29 +1,36 @@
-import React, { useEffect } from 'react';
-import { Typography, Button } from '@mui/material';
-import { Link, useParams } from 'react-router-dom';
-import { useQuery } from "@tanstack/react-query";
-import { fetchUserById } from "../../api"; // api/index.js
+import React, { useEffect, useState } from 'react';
+import { Typography, Button, Box } from '@mui/material';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchUserById, deleteUser } from "../../api";
 
 import './styles.css';
-
-// Zustand store
+import ConfirmDialog from '../ConfirmDialog';
 import useZustandStore from '../../zustandStore';
 
 function UserDetail() {
-  // get userId from URL instead of props
   const { userId } = useParams();
-
-  // sync state to Zustand
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  
+  // Get current user from Zustand
+  const currentUser = useZustandStore((state) => state.currentUser);
+  const resetStore = useZustandStore((state) => state.resetStore);
   const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
 
-  // keep global state updated when URL changes
+  // State for confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  // Check if viewing own profile
+  const isOwnProfile = currentUser && currentUser._id === userId;
+
   useEffect(() => {
     if (userId) {
       setSelectedUserId(userId);
     }
   }, [userId, setSelectedUserId]);
 
-  // React Query replaces axios + useEffect
+  // Fetch user data
   const {
     data: user,
     isLoading,
@@ -32,8 +39,32 @@ function UserDetail() {
   } = useQuery({
     queryKey: ["user", userId],      
     queryFn: () => fetchUserById(userId),
-    enabled: !!userId, // only fetch if userId exists
+    enabled: !!userId,
   });
+
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: () => deleteUser(userId),
+    onSuccess: () => {
+      // Clear all state and redirect to login
+      resetStore();
+      queryClient.clear();
+      navigate('/login-register');
+    },
+    onError: (err) => {
+      console.error('Error deleting account:', err);
+      alert('Failed to delete account. Please try again.');
+    }
+  });
+
+  const handleDeleteAccount = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setDeleteDialogOpen(false);
+    deleteUserMutation.mutate();
+  };
 
   if (isLoading) return <div>Loading information...</div>;
   if (isError) return <div>Error with loading user: {error.message}</div>;
@@ -56,9 +87,35 @@ function UserDetail() {
         <strong>Description:</strong> {user?.description || "N/A"}
       </Typography>
 
-      <Button variant="contained" component={Link} to={`/photos/${userId}`} sx={{ mt: 2 }}>
-        View Photos
-      </Button>
+      <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Button 
+          variant="contained" 
+          component={Link} 
+          to={`/photos/${userId}`}
+        >
+          View Photos
+        </Button>
+
+        {isOwnProfile && (
+          <Button 
+            variant="outlined" 
+            color="error"
+            onClick={handleDeleteAccount}
+            disabled={deleteUserMutation.isPending}
+          >
+            {deleteUserMutation.isPending ? 'Deleting...' : 'Delete Account'}
+          </Button>
+        )}
+      </Box>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Account?"
+        message="Are you sure you want to delete your account? This will permanently delete all your photos, comments, and account information. This action cannot be undone."
+      />
     </div>
   );
 }

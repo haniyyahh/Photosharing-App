@@ -7,8 +7,9 @@ import {
   Box,
   Button,
   TextField,
+  IconButton,
 } from "@mui/material";
-import { NavigateBefore, NavigateNext } from "@mui/icons-material";
+import { NavigateBefore, NavigateNext, Delete } from "@mui/icons-material";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,9 +17,12 @@ import {
   fetchPhotosByUser,
   addCommentToPhoto,
   likePhoto,
+  deletePhoto,
+  deleteComment,
 } from "../../api";
 
 import useZustandStore from "../../zustandStore";
+import ConfirmDialog from "../ConfirmDialog";
 import "./styles.css";
 
 function UserPhotos({ userId, photoId = null }) {
@@ -29,12 +33,15 @@ function UserPhotos({ userId, photoId = null }) {
   const advancedFeaturesEnabled = useZustandStore(
     (s) => s.advancedFeaturesEnabled
   );
+  const loggedInUser = useZustandStore((s) => s.currentUser);
 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [newComment, setNewComment] = useState("");
   const initialized = React.useRef(false);
 
-  const loggedInUser = useZustandStore((s) => s.currentUser);
+  // Delete confirmation state
+  const [photoToDelete, setPhotoToDelete] = useState(null);
+  const [commentToDelete, setCommentToDelete] = useState(null);
 
   // React Query fetch
   const {
@@ -48,16 +55,14 @@ function UserPhotos({ userId, photoId = null }) {
     enabled: !!userId,
   });
 
-  // After fetching userPhotos
+  // Sort photos
   const sortedPhotos = [...userPhotos].sort((a, b) => {
     const likesDiff = (b.likes?.length || 0) - (a.likes?.length || 0);
     if (likesDiff !== 0) return likesDiff;
-
-    // If likes are equal, compare timestamps
     return new Date(b.date_time) - new Date(a.date_time);
   });
 
-  // react Query mutation to ADD comment
+  // React Query mutation to ADD comment
   const commentMutation = useMutation({
     mutationFn: ({ photo_id, comment }) => addCommentToPhoto(photo_id, comment),
     onSuccess: () => {
@@ -66,7 +71,7 @@ function UserPhotos({ userId, photoId = null }) {
     },
   });
 
-  // react Query mutation to LIKE photo
+  // React Query mutation to LIKE photo
   const likeMutation = useMutation({
     mutationFn: (photoId) => likePhoto(photoId),
     onSuccess: () => {
@@ -74,7 +79,40 @@ function UserPhotos({ userId, photoId = null }) {
     },
   });
 
-  // initialize index when photos load + photoId provided
+  // DELETE PHOTO mutation
+  const deletePhotoMutation = useMutation({
+    mutationFn: (photoId) => deletePhoto(photoId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["photosOfUser", userId]);
+      setPhotoToDelete(null);
+      
+      // If in advanced mode and deleted current photo, adjust index
+      if (advancedFeaturesEnabled && sortedPhotos.length > 1) {
+        if (currentPhotoIndex >= sortedPhotos.length - 1) {
+          setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
+        }
+      }
+    },
+    onError: (err) => {
+      console.error('Error deleting photo:', err);
+      alert('Failed to delete photo. Please try again.');
+    }
+  });
+
+  // DELETE COMMENT mutation
+  const deleteCommentMutation = useMutation({
+    mutationFn: ({ commentId, photoId }) => deleteComment(commentId, photoId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["photosOfUser", userId]);
+      setCommentToDelete(null);
+    },
+    onError: (err) => {
+      console.error('Error deleting comment:', err);
+      alert('Failed to delete comment. Please try again.');
+    }
+  });
+
+  // Initialize index when photos load + photoId provided
   useEffect(() => {
     if (!initialized.current && photoId && userPhotos.length > 0) {
       const idx = userPhotos.findIndex((p) => p._id === photoId);
@@ -83,7 +121,7 @@ function UserPhotos({ userId, photoId = null }) {
     }
   }, [photoId, userPhotos]);
 
-  // sync URL (advanced mode only)
+  // Sync URL (advanced mode only)
   useEffect(() => {
     if (advancedFeaturesEnabled && userPhotos.length > 0) {
       const currentPhoto = userPhotos[currentPhotoIndex];
@@ -125,11 +163,32 @@ function UserPhotos({ userId, photoId = null }) {
     });
   };
 
-  // loading & error states
+  // Delete handlers
+  const handleDeletePhoto = (photoId) => {
+    setPhotoToDelete(photoId);
+  };
+
+  const handleConfirmDeletePhoto = () => {
+    if (photoToDelete) {
+      deletePhotoMutation.mutate(photoToDelete);
+    }
+  };
+
+  const handleDeleteComment = (commentId, photoId) => {
+    setCommentToDelete({ commentId, photoId });
+  };
+
+  const handleConfirmDeleteComment = () => {
+    if (commentToDelete) {
+      deleteCommentMutation.mutate(commentToDelete);
+    }
+  };
+
+  // Loading & error states
   if (isLoading) return <div>Loading photos...</div>;
   if (isError) return <div>Error loading photos: {error?.message || "Unknown error"}</div>;
 
-  // handle empty photo array
+  // Handle empty photo array
   if (!userPhotos || userPhotos.length === 0) {
     return <div>There are no photos for this user.</div>;
   }
@@ -137,6 +196,7 @@ function UserPhotos({ userId, photoId = null }) {
   // ADVANCED MODE (with comment input UI)
   if (advancedFeaturesEnabled) {
     const photo = sortedPhotos[currentPhotoIndex];
+    const isOwnPhoto = loggedInUser && photo.user_id === loggedInUser._id;
 
     return (
       <Box sx={{ width: "100%", maxWidth: "100%", overflow: "hidden" }}>
@@ -185,16 +245,32 @@ function UserPhotos({ userId, photoId = null }) {
             />
 
             <Box sx={{ padding: 2 }}>
-              <Typography variant="body2" color="textSecondary">
-                Taken: {new Date(photo.date_time).toLocaleString()}
-              </Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Typography variant="body2" color="textSecondary">
+                  Taken: {new Date(photo.date_time).toLocaleString()}
+                </Typography>
+                
+                {/* Delete Photo Button - only show if user owns the photo */}
+                {isOwnPhoto && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<Delete />}
+                    onClick={() => handleDeletePhoto(photo._id)}
+                    disabled={deletePhotoMutation.isPending}
+                  >
+                    Delete Photo
+                  </Button>
+                )}
+              </Box>
             
               <Box sx={{ mt: 1, mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
                 <Button
                   variant={photo.likes?.includes(loggedInUser?._id) ? "contained" : "outlined"}
                   color="primary"
                   onClick={() => likeMutation.mutate(photo._id)}
-                  disabled={!loggedInUser || likeMutation.isLoading}
+                  disabled={!loggedInUser || likeMutation.isPending}
                 >
                   {photo.likes?.includes(loggedInUser?._id) ? "Unlike" : "Like"}
                 </Button>
@@ -209,25 +285,52 @@ function UserPhotos({ userId, photoId = null }) {
               </Typography>
 
               {photo.comments?.length > 0 ? (
-                photo.comments.map((c) => (
-                  <div key={c._id} style={{ marginTop: "6px" }}>
-                    <Typography variant="body2">
-                      <Link
-                        to={`/users/${c.user._id}`}
-                        style={{ textDecoration: "none", color: "#1976d2" }}
-                      >
-                        <strong>
-                          {c.user.first_name} {c.user.last_name}
-                        </strong>
-                      </Link>
-                      : {c.comment}
-                    </Typography>
+                photo.comments.map((c) => {
+                  const isOwnComment = loggedInUser && c.user._id === loggedInUser._id;
+                  
+                  return (
+                    <Box 
+                      key={c._id} 
+                      sx={{ 
+                        marginTop: "6px", 
+                        display: "flex", 
+                        justifyContent: "space-between",
+                        alignItems: "flex-start"
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <Typography variant="body2">
+                          <Link
+                            to={`/users/${c.user._id}`}
+                            style={{ textDecoration: "none", color: "#1976d2" }}
+                          >
+                            <strong>
+                              {c.user.first_name} {c.user.last_name}
+                            </strong>
+                          </Link>
+                          : {c.comment}
+                        </Typography>
 
-                    <Typography variant="caption" color="textSecondary">
-                      {new Date(c.date_time).toLocaleString()}
-                    </Typography>
-                  </div>
-                ))
+                        <Typography variant="caption" color="textSecondary">
+                          {new Date(c.date_time).toLocaleString()}
+                        </Typography>
+                      </div>
+
+                      {/* Delete Comment Button - only show if user owns the comment */}
+                      {isOwnComment && (
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteComment(c._id, photo._id)}
+                          disabled={deleteCommentMutation.isPending}
+                          sx={{ ml: 1 }}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
+                  );
+                })
               ) : (
                 <Typography variant="body2" color="textSecondary">
                   No comments
@@ -252,79 +355,160 @@ function UserPhotos({ userId, photoId = null }) {
                   variant="contained"
                   sx={{ mt: 1.5 }}
                   onClick={handleAddComment}
-                  disabled={!newComment.trim() || commentMutation.isLoading}
+                  disabled={!newComment.trim() || commentMutation.isPending}
                 >
-                  {commentMutation.isLoading ? "Posting..." : "Add Comment"}
+                  {commentMutation.isPending ? "Posting..." : "Add Comment"}
                 </Button>
               </Box>
             </Box>
           </Card>
         </Box>
+
+        {/* Confirmation Dialogs */}
+        <ConfirmDialog
+          open={!!photoToDelete}
+          onClose={() => setPhotoToDelete(null)}
+          onConfirm={handleConfirmDeletePhoto}
+          title="Delete Photo?"
+          message="Are you sure you want to delete this photo? All comments on this photo will also be deleted. This action cannot be undone."
+        />
+
+        <ConfirmDialog
+          open={!!commentToDelete}
+          onClose={() => setCommentToDelete(null)}
+          onConfirm={handleConfirmDeleteComment}
+          title="Delete Comment?"
+          message="Are you sure you want to delete this comment? This action cannot be undone."
+        />
       </Box>
     );
   }
 
   // NON-ADVANCED MODE
   return (
-    <Grid container spacing={2}>
-      {sortedPhotos.map((photo) => (
-        <Grid item xs={12} sm={6} md={4} key={photo._id}>
-          <Card>
-            <CardMedia
-              component="img"
-              image={`/images/${photo.file_name}`}
-              alt={`Photo ${photo._id}`}
-            />
+    <>
+      <Grid container spacing={2}>
+        {sortedPhotos.map((photo) => {
+          const isOwnPhoto = loggedInUser && photo.user_id === loggedInUser._id;
+          
+          return (
+            <Grid item xs={12} sm={6} md={4} key={photo._id}>
+              <Card>
+                <CardMedia
+                  component="img"
+                  image={`/images/${photo.file_name}`}
+                  alt={`Photo ${photo._id}`}
+                />
 
-            <div style={{ padding: "8px" }}>
-              <Typography variant="body2" color="textSecondary">
-                Taken: {new Date(photo.date_time).toLocaleString()}
-              </Typography>
-
-              <Box sx={{ mt: 1, display: "flex", alignItems: "center", gap: 1 }}>
-                <Button
-                  size="small"
-                  variant={photo.likes?.includes(loggedInUser?._id) ? "contained" : "outlined"}
-                  onClick={() => likeMutation.mutate(photo._id)}
-                  disabled={!loggedInUser || likeMutation.isLoading}
-                >
-                  {photo.likes?.includes(loggedInUser?._id) ? "Unlike" : "Like"}
-                </Button>
-
-                <Typography variant="caption">
-                  {photo.likes?.length || 0} likes
-                </Typography>
-              </Box>
-
-              {photo.comments?.length > 0 ? (
-                photo.comments.map((c) => (
-                  <div key={c._id} style={{ marginTop: "6px" }}>
-                    <Typography variant="body2">
-                      <Link
-                        to={`/users/${c.user._id}`}
-                        style={{ textDecoration: "none", color: "#1976d2" }}
+                <div style={{ padding: "8px" }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Taken: {new Date(photo.date_time).toLocaleString()}
+                    </Typography>
+                    
+                    {/* Delete Photo Button - only show if user owns the photo */}
+                    {isOwnPhoto && (
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeletePhoto(photo._id)}
+                        disabled={deletePhotoMutation.isPending}
                       >
-                        <strong>
-                          {c.user.first_name} {c.user.last_name}
-                        </strong>
-                      </Link>
-                      : {c.comment}
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
+
+                  <Box sx={{ mt: 1, display: "flex", alignItems: "center", gap: 1 }}>
+                    <Button
+                      size="small"
+                      variant={photo.likes?.includes(loggedInUser?._id) ? "contained" : "outlined"}
+                      onClick={() => likeMutation.mutate(photo._id)}
+                      disabled={!loggedInUser || likeMutation.isPending}
+                    >
+                      {photo.likes?.includes(loggedInUser?._id) ? "Unlike" : "Like"}
+                    </Button>
+
+                    <Typography variant="caption">
+                      {photo.likes?.length || 0} likes
                     </Typography>
-                    <Typography variant="caption" color="textSecondary">
-                      {new Date(c.date_time).toLocaleString()}
+                  </Box>
+
+                  {photo.comments?.length > 0 ? (
+                    photo.comments.map((c) => {
+                      const isOwnComment = loggedInUser && c.user._id === loggedInUser._id;
+                      
+                      return (
+                        <Box 
+                          key={c._id} 
+                          sx={{ 
+                            marginTop: "6px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start"
+                          }}
+                        >
+                          <div style={{ flex: 1 }}>
+                            <Typography variant="body2">
+                              <Link
+                                to={`/users/${c.user._id}`}
+                                style={{ textDecoration: "none", color: "#1976d2" }}
+                              >
+                                <strong>
+                                  {c.user.first_name} {c.user.last_name}
+                                </strong>
+                              </Link>
+                              : {c.comment}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              {new Date(c.date_time).toLocaleString()}
+                            </Typography>
+                          </div>
+
+                          {/* Delete Comment Button - only show if user owns the comment */}
+                          {isOwnComment && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteComment(c._id, photo._id)}
+                              disabled={deleteCommentMutation.isPending}
+                              sx={{ ml: 0.5 }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                      );
+                    })
+                  ) : (
+                    <Typography variant="body2" color="textSecondary">
+                      No comments
                     </Typography>
-                  </div>
-                ))
-              ) : (
-                <Typography variant="body2" color="textSecondary">
-                  No comments
-                </Typography>
-              )}
-            </div>
-          </Card>
-        </Grid>
-      ))}
-    </Grid>
+                  )}
+                </div>
+              </Card>
+            </Grid>
+          );
+        })}
+      </Grid>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmDialog
+        open={!!photoToDelete}
+        onClose={() => setPhotoToDelete(null)}
+        onConfirm={handleConfirmDeletePhoto}
+        title="Delete Photo?"
+        message="Are you sure you want to delete this photo? All comments on this photo will also be deleted. This action cannot be undone."
+      />
+
+      <ConfirmDialog
+        open={!!commentToDelete}
+        onClose={() => setCommentToDelete(null)}
+        onConfirm={handleConfirmDeleteComment}
+        title="Delete Comment?"
+        message="Are you sure you want to delete this comment? This action cannot be undone."
+      />
+    </>
   );
 }
 

@@ -127,4 +127,25 @@ export async function uploadPhoto(formData) {
   return response.json();
 }
 
+// ======== DELETING COMMENTS/PHOTOS/ACCOUNT ===========
+// Delete a comment
+export async function deleteComment(commentId, photoId) {
+  const response = await api.delete(
+    `/comments/${commentId}/photo/${photoId}`
+  );
+  return response.data;
+}
+
+// Delete a photo
+export async function deletePhoto(photoId) {
+  const response = await api.delete(`/photos/${photoId}`);
+  return response.data;
+}
+
+// Delete user account
+export async function deleteUser(userId) {
+  const response = await api.delete(`/user/${userId}`);
+  return response.data;
+}
+
 export default api;
