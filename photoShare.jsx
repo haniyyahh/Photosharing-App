@@ -1,5 +1,4 @@
-// import React from 'react';
-// eslint-disable-next-line import/no-extraneous-dependencies
+
 import ReactDOM from 'react-dom/client';
 import React from 'react';
 
@@ -20,15 +19,14 @@ import TopBar from './components/TopBar';
 import UserDetail from './components/UserDetail';
 import UserList from './components/UserList';
 import UserPhotos from './components/UserPhotos';
-//import UserComments from './components/UserComments';
 import UserCommentsRoute from './components/UserComments';
 import LoginRegister from './components/LoginRegister';
+import ActivityFeed from './components/ActivityFeed';
 
 // Zustand store
 import useZustandStore from "./zustandStore";
 
 // React Query
-
 const queryClient = new QueryClient();
 
 // route wrappers
@@ -64,18 +62,7 @@ function PhotoShare() {
   const setAdvancedFeaturesEnabled = useZustandStore((s) => s.setAdvancedFeaturesEnabled);
   const currentUser = useZustandStore((state) => state.currentUser);
   
-  // console.log('=== PhotoShare Render ===');
-  // console.log('currentUser:', currentUser);
-  // console.log('currentUser type:', typeof currentUser);
-  // console.log('currentUser === null:', currentUser === null);
-  // console.log('currentUser !== null:', currentUser !== null);
-  
   const userIsLoggedIn = currentUser !== null;
-  // console.log('userIsLoggedIn:', userIsLoggedIn);
-  
-
-  // Check if user is logged in
-  // const userIsLoggedIn = currentUser !== null;
 
   return (
     <BrowserRouter>
@@ -104,25 +91,32 @@ function PhotoShare() {
             <Paper className="main-grid-item">
               <Routes>
                 {/* Login/Register route */}
-                <Route path="/login" element={<LoginRegister />} />
+                <Route path="/login-register" element={<LoginRegister />} />
+
+                {/* Activities route */}
+                {userIsLoggedIn ? (
+                  <Route path="/activities" element={<ActivityFeed />} />
+                ) : (
+                  <Route path="/activities" element={<Navigate to="/login-register" replace />} />
+                )}
 
                 {/* Conditional routes based on login status */}
                 {userIsLoggedIn ? (
                   <Route path="/users/:userId" element={<UserDetailRoute />} />
                 ) : (
-                  <Route path="/users/:userId" element={<Navigate to="/login" replace />} />
+                  <Route path="/users/:userId" element={<Navigate to="/login-register" replace />} />
                 )}
 
                 {userIsLoggedIn ? (
                   <Route path="/photos/:userId/:photoId?" element={<UserPhotosRoute />} />
                 ) : (
-                  <Route path="/photos/:userId/:photoId?" element={<Navigate to="/login" replace />} />
+                  <Route path="/photos/:userId/:photoId?" element={<Navigate to="/login-register" replace />} />
                 )}
 
                 {userIsLoggedIn ? (
                   <Route path="/users" element={<UserList advancedFeaturesEnabled={advancedFeaturesEnabled} />} />
                 ) : (
-                  <Route path="/users" element={<Navigate to="/login" replace />} />
+                  <Route path="/users" element={<Navigate to="/login-register" replace />} />
                 )}
 
                 {/* Comments (advanced mode only) */}
@@ -138,21 +132,21 @@ function PhotoShare() {
                     }
                   />
                 ) : (
-                  <Route path="/comments/:userId" element={<Navigate to="/login" replace />} />
+                  <Route path="/comments/:userId" element={<Navigate to="/login-register" replace />} />
                 )}
 
                 {/* Default route */}
                 {userIsLoggedIn ? (
                   <Route path="/" element={<Navigate to={`/users/${currentUser._id}`} replace />} />
                 ) : (
-                  <Route path="/" element={<Navigate to="/login" replace />} />
+                  <Route path="/" element={<Navigate to="/login-register" replace />} />
                 )}
 
                 {/* Catch-all for any other routes */}
                 {userIsLoggedIn ? (
                   <Route path="*" element={<Navigate to={`/users/${currentUser._id}`} replace />} />
                 ) : (
-                  <Route path="*" element={<Navigate to="/login" replace />} />
+                  <Route path="*" element={<Navigate to="/login-register" replace />} />
                 )}
               </Routes>
             </Paper>

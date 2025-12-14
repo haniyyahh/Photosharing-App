@@ -74,6 +74,18 @@ export async function fetchUserComments(userId) {
 //   return userComments;
 // }
 
+// Fetch user statistics (most recent photo, most commented photo)
+export async function fetchUserStats(userId) {
+  const res = await api.get(`/user/${userId}/stats`);
+  return res.data;
+}
+
+// Fetch recent activities (for Activity Feed)
+export async function fetchActivities() {
+  const res = await api.get('/activities');
+  return res.data;
+}
+
 // POST / PUT / DELETE REQUESTS
 
 // POST /admin/login  (NEW: includes password)
