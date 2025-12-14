@@ -3,6 +3,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Box, Typography } from "@mui/material";
 import useZustandStore from "../../zustandStore";
 import { uploadPhoto } from "../../api";
+import { useQuery } from "@tanstack/react-query";
+import { fetchUsers } from "../../api";
+import {
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+} from "@mui/material";
 
 export default function AddPhotos() {
   const [file, setFile] = useState(null);
@@ -36,8 +43,21 @@ export default function AddPhotos() {
     const formData = new FormData();
     formData.append("uploadedphoto", file);
 
+    // visibility settings
+    if (limitVisibility) {
+      formData.append("sharedWith", JSON.stringify(sharedWith));
+    }
+
     uploadMutation.mutate(formData);
   };
+
+  const [limitVisibility, setLimitVisibility] = useState(false);
+  const [sharedWith, setSharedWith] = useState([]);
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: fetchUsers,
+  });
 
   return (
     <Box sx={{ p: 2 }}>
@@ -50,6 +70,64 @@ export default function AddPhotos() {
         accept="image/*"
         onChange={(e) => setFile(e.target.files[0])}
       />
+
+      <Box sx={{ mt: 2 }}>
+        <FormControlLabel
+          control={
+            <Checkbox
+              size="small"
+              checked={limitVisibility}
+              onChange={(e) => {
+                setLimitVisibility(e.target.checked);
+                if (!e.target.checked) setSharedWith([]);
+              }}
+            />
+          }
+          label={
+            <Typography variant="body2">
+              Limit who can see this photo
+            </Typography>
+          }
+        />
+      </Box>
+
+      {limitVisibility && (
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="subtitle2">
+            Share with:
+          </Typography>
+
+          <FormGroup>
+            {users
+              .filter((u) => u._id !== loggedInUser?._id)
+              .map((user) => (
+                <FormControlLabel
+                  key={user._id}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={sharedWith.includes(user._id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSharedWith([...sharedWith, user._id]);
+                        } else {
+                          setSharedWith(
+                            sharedWith.filter((id) => id !== user._id)
+                          );
+                        }
+                      }}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2">
+                      {user.first_name} {user.last_name}
+                    </Typography>
+                  }
+                />
+              ))}
+          </FormGroup>
+        </Box>
+      )}
 
       <Button 
         variant="contained" 
