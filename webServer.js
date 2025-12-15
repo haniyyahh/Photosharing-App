@@ -672,18 +672,22 @@ app.get("/commentsByUser/:userId", async (req, res) => {
     const userComments = [];
 
     photos.forEach(photo => {
-      if (photo.comments) {
-        photo.comments.forEach(comment => {
-          if (comment.user_id && comment.user_id.toString() === userId) {
-            userComments.push({
-              ...comment,
-              photoId: photo._id.toString(),
-              photoUrl: photo.file_name,
-              photoUserId: photo.user_id.toString(),
-            });
-          }
-        });
-      }
+      if (!photo.comments) return;
+
+      photo.comments.forEach(comment => {
+        if (comment.user_id.toString() === userId) {
+          userComments.push({
+            _id: comment._id,
+            comment: comment.comment,
+            date_time: comment.date_time,
+
+            photoId: photo._id.toString(),
+            photoIndex: photo._id.toString(), // fallback safety
+            photoUrl: photo.file_name,
+            photoUserId: photo.user_id.toString(),
+          });
+        }
+      });
     });
 
     return res.status(200).send(userComments);
