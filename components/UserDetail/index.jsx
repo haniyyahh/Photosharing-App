@@ -17,10 +17,14 @@ function UserDetail() {
   const currentUser = useZustandStore((state) => state.currentUser);
   const resetStore = useZustandStore((state) => state.resetStore);
   const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
+  const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
   const isOwnProfile = currentUser && currentUser._id === userId;
+
+  const setAdvancedFeaturesEnabled = useZustandStore(
+    (s) => s.setAdvancedFeaturesEnabled
+  );
 
   useEffect(() => {
     if (userId) {
@@ -95,31 +99,23 @@ function UserDetail() {
             {stats.mostRecentPhoto && (
               <Box>
                 <Typography variant="subtitle1">Most Recent Photo</Typography>
-                <Link to={`/photos/${userId}`}>
-                  <Box
-                  component={Link}
-                  to={`/photos/${userId}`}
+                <Box
+                  component="img"
+                  src={`http://localhost:3001/images/${stats.mostRecentPhoto.file_name}`}
+                  alt="Most recent"
                   sx={{
-                    display: "inline-block",
                     width: 120,
                     height: 120,
-                    borderRadius: 1,
-                    overflow: "hidden",
+                    objectFit: "cover",
+                    cursor: "pointer",
                   }}
-                >
-                  <Box
-                    component="img"
-                    src={`http://localhost:3001/images/${stats.mostRecentPhoto.file_name}`}
-                    alt="Most recent"
-                    sx={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      cursor: "pointer",
-                    }}
-                  />
-                </Box>
-                </Link>
+                  onClick={() => {
+                    setSelectedUserId(userId);
+                    setSelectedPhotoId(stats.mostRecentPhoto._id);
+                    setAdvancedFeaturesEnabled(true);
+                    navigate(`/photos/${userId}/${stats.mostRecentPhoto._id}`);
+                  }}
+                />
                 <Typography variant="body2">
                   Uploaded:{" "}
                   {new Date(stats.mostRecentPhoto.date_time).toLocaleString()}
@@ -131,32 +127,23 @@ function UserDetail() {
             {stats.mostCommentedPhoto && (
               <Box>
                 <Typography variant="subtitle1">Most Commented Photo</Typography>
-                <Link to={`/photos/${userId}`}>
                 <Box
-                  component={Link}
-                  to={`/photos/${userId}`}
+                  component="img"
+                  src={`http://localhost:3001/images/${stats.mostCommentedPhoto.file_name}`}
+                  alt="Most commented"
                   sx={{
-                    display: "inline-block",
                     width: 120,
                     height: 120,
-                    borderRadius: 1,
-                    overflow: "hidden",
+                    objectFit: "cover",
+                    cursor: "pointer",
                   }}
-                >
-                  <Box
-                    component="img"
-                    src={`http://localhost:3001/images/${stats.mostCommentedPhoto.file_name}`}
-                    alt="Most commented"
-                    sx={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      cursor: "pointer",
-                    }}
-                  />
-                </Box>
-
-                </Link>
+                  onClick={() => {
+                    setSelectedUserId(userId);
+                    setSelectedPhotoId(stats.mostCommentedPhoto._id);
+                    setAdvancedFeaturesEnabled(true);
+                    navigate(`/photos/${userId}/${stats.mostCommentedPhoto._id}`);
+                  }}
+                />
                 <Typography variant="body2">
                   Comments: {stats.mostCommentedPhoto.comment_count}
                 </Typography>
