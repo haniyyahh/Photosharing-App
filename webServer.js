@@ -249,13 +249,37 @@ app.post("/user", async (req, res) => {
 app.get("/user/list", async (req, res) => {
   try {
     const users = await User.find({}, "_id first_name last_name").lean();
-    return res.status(200).send(
-      users.map((u) => ({
-        _id: u._id.toString(),
-        first_name: u.first_name,
-        last_name: u.last_name,
-      }))
-    );
+
+    const userIds = users.map(u => u._id);
+
+    // get latest activity per user
+    const activities = await Activity.aggregate([
+      { $match: { user_id: { $in: userIds } } },
+      { $sort: { date_time: -1 } },
+      {
+        $group: {
+          _id: "$user_id",
+          activity_type: { $first: "$activity_type" },
+          date_time: { $first: "$date_time" },
+          photo_id: { $first: "$photo_id" },
+          file_name: { $first: "$file_name" },
+        }
+      }
+    ]);
+
+    const activityMap = {};
+    activities.forEach(a => {
+      activityMap[a._id.toString()] = a;
+    });
+
+    const response = users.map(u => ({
+      _id: u._id.toString(),
+      first_name: u.first_name,
+      last_name: u.last_name,
+      lastActivity: activityMap[u._id.toString()] || null
+    }));
+
+    return res.status(200).send(response);
   } catch (err) {
     console.error("Error in /user/list:", err);
     return res.status(500).send({ error: "Internal server error" });

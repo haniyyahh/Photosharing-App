@@ -8,11 +8,15 @@ import {
 } from "@mui/material";
 
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery, useQueries } from "@tanstack/react-query";
-import { fetchUsers, fetchPhotosByUser } from "../../api";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query"; ///
+import { fetchUsers, fetchPhotosByUser } from "../../api";    ///
 
 import useZustandStore from "../../zustandStore";
 import "./styles.css";
+
+import { useEffect, useState } from "react";
+import socket from "../../socket";
+import { formatDistanceToNow } from "date-fns";
 
 function UserList() {
   // alert('NEW VERSION LOADED!'); 
@@ -24,7 +28,24 @@ function UserList() {
   );
   const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
   const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
-  const currentUser = useZustandStore((s) => s.currentUser); // ADD THIS
+  const currentUser = useZustandStore((s) => s.currentUser);
+
+  // story 8 implementation
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const handleNewActivity = () => {
+      queryClient.invalidateQueries(["users"]);       // re-fetch /user/list so sidebar updates
+    };
+
+    socket.on("new_activity", handleNewActivity);
+
+    return () => {
+      socket.off("new_activity", handleNewActivity);
+    };
+  }, [currentUser, queryClient]);
 
   // 1. Fetch users - ONLY if logged in
   const {
@@ -35,7 +56,7 @@ function UserList() {
   } = useQuery({
     queryKey: ["users"],
     queryFn: fetchUsers,
-    enabled: !!currentUser, // ADD THIS - only fetch if logged in
+    enabled: !!currentUser, // only run if logged in
   });
 
   // 2. Fetch photos for each user in parallel
@@ -44,7 +65,7 @@ function UserList() {
       users?.map((user) => ({
         queryKey: ["photosOfUser", user._id],
         queryFn: () => fetchPhotosByUser(user._id),
-        enabled: !!users && !!currentUser, // ADD currentUser check
+        enabled: !!users && !!currentUser, // currentUser check
       })) || [],
   });
 
@@ -138,8 +159,40 @@ function UserList() {
                 setSelectedPhotoId(null);
               }}
             >
+              {/* photo thumbnail for activity */}
+              {user.lastActivity?.activity_type === "PHOTO_UPLOAD" &&
+                user.lastActivity.photo_id &&
+                user.lastActivity.file_name && (
+                  <img
+                    src={`/images/${user.lastActivity.file_name}`}
+                    alt="activity"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      objectFit: "cover",
+                      borderRadius: 4,
+                      marginRight: 8,
+                      cursor: "pointer",
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation(); // prevent ListItemButton click
+                      setSelectedUserId(user._id);
+                      setSelectedPhotoId(user.lastActivity.photo_id);
+                      navigate(`/photos/${user._id}`);
+                    }}
+                  />
+                )}
+
               <ListItemText
                 primary={`${user.first_name} ${user.last_name}`}
+                secondary={
+                  user.lastActivity
+                    ? `${activityText(user.lastActivity)} • ${formatDistanceToNow(
+                        new Date(user.lastActivity.date_time),
+                        { addSuffix: true }
+                      )}`
+                    : "No recent activity"
+                }
               />
             </ListItemButton>
           </ListItem>
@@ -149,6 +202,25 @@ function UserList() {
       ))}
     </List>
   );
+}
+
+function activityText(activity) {
+  if (!activity) return "No recent activity";
+
+  switch (activity.activity_type) {
+    case "PHOTO_UPLOAD":
+      return "posted a photo";
+    case "COMMENT_ADDED":
+      return "added a comment";
+    case "USER_REGISTER":
+      return "registered";
+    case "USER_LOGIN":
+      return "logged in";
+    case "USER_LOGOUT":
+      return "logged out";
+    default:
+      return "did something";
+  }
 }
 
 export default UserList;
