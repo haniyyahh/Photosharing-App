@@ -116,12 +116,12 @@ function UserPhotos({ userId, photoId = null }) {
 
   // Initialize index when photos load + photoId provided
   useEffect(() => {
-    if (!initialized.current && photoId && userPhotos.length > 0) {
-      const idx = userPhotos.findIndex((p) => p._id === photoId);
+    if (!initialized.current && photoId && sortedPhotos.length > 0) {
+      const idx = sortedPhotos.findIndex((p) => p._id === photoId);
       if (idx !== -1) setCurrentPhotoIndex(idx);
       initialized.current = true;
     }
-  }, [photoId, userPhotos]);
+  }, [photoId, sortedPhotos]);
 
   // Sync URL (advanced mode only)
   useEffect(() => {
