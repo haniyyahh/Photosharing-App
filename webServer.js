@@ -1,3 +1,4 @@
+
 /**
  * Project 3 Express server connected to MongoDB 'project3'.
  * Start with: node webServer.js
@@ -101,6 +102,15 @@ async function createActivity(activityType, userId, photoId = null, fileName = n
     // Fetch user info for the activity
     const user = await User.findById(userId, '_id first_name last_name').lean();
 
+    // Fetch photo owner ID if this activity involves a photo
+    let photoOwnerId = null;
+    if (photoId) {
+      const photo = await Photo.findById(photoId, 'user_id').lean();
+      if (photo) {
+        photoOwnerId = photo.user_id.toString();
+      }
+    }
+
     // Format activity for socket emission
     const activityData = {
       _id: newActivity._id.toString(),
@@ -108,6 +118,7 @@ async function createActivity(activityType, userId, photoId = null, fileName = n
       date_time: newActivity.date_time,
       photo_id: newActivity.photo_id ? newActivity.photo_id.toString() : null,
       file_name: newActivity.file_name,
+      photo_owner_id: photoOwnerId,
       user: user ? {
         _id: user._id.toString(),
         first_name: user.first_name,
@@ -624,37 +635,36 @@ app.delete("/photos/:photoId", async (req, res) => {
 // ============================================
 
 // GET COMMENTS BY USER
-app.get("/commentsByUser/:id", async (req, res) => {
+app.get("/commentsByUser/:userId", async (req, res) => {
   try {
-    const userId = req.params.id;
-
+    const userId = req.params.userId;
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).send({ error: "Invalid user id format" });
     }
 
-    const photos = await Photo.find({ "comments.user_id": userId })
-      .select("file_name date_time comments")
-      .lean();
+    // Find all photos that have comments by this user
+    const photos = await Photo.find({ "comments.user_id": userId }).lean();
 
     const userComments = [];
 
-    photos.forEach((photo) => {
-      photo.comments.forEach((c) => {
-        if (c.user_id && c.user_id.toString() === userId) {
-          userComments.push({
-            photo_id: photo._id.toString(),
-            file_name: photo.file_name,
-            photo_date: photo.date_time,
-            comment: c.comment,
-            comment_date: c.date_time,
-          });
-        }
-      });
+    photos.forEach(photo => {
+      if (photo.comments) {
+        photo.comments.forEach(comment => {
+          if (comment.user_id && comment.user_id.toString() === userId) {
+            userComments.push({
+              ...comment,
+              photoId: photo._id.toString(),
+              photoUrl: photo.file_name,
+              photoUserId: photo.user_id.toString(),
+            });
+          }
+        });
+      }
     });
 
     return res.status(200).send(userComments);
   } catch (err) {
-    console.error("Error in /commentsByUser/:id:", err);
+    console.error("Error in /commentsByUser/:userId:", err);
     return res.status(500).send({ error: "Internal server error" });
   }
 });
@@ -771,12 +781,28 @@ app.get("/activities", async (req, res) => {
       userMap[u._id.toString()] = u;
     });
 
+    // Fetch photo owner IDs for activities with photos
+    const photoIds = activities
+      .filter(a => a.photo_id)
+      .map(a => a.photo_id);
+    
+    const photos = await Photo.find(
+      { _id: { $in: photoIds } },
+      '_id user_id'
+    ).lean();
+
+    const photoOwnerMap = {};
+    photos.forEach(p => {
+      photoOwnerMap[p._id.toString()] = p.user_id.toString();
+    });
+
     const enhancedActivities = activities.map(activity => ({
       _id: activity._id.toString(),
       activity_type: activity.activity_type,
       date_time: activity.date_time,
       photo_id: activity.photo_id ? activity.photo_id.toString() : null,
       file_name: activity.file_name,
+      photo_owner_id: activity.photo_id ? photoOwnerMap[activity.photo_id.toString()] : null,
       user: userMap[activity.user_id.toString()] ? {
         _id: activity.user_id.toString(),
         first_name: userMap[activity.user_id.toString()].first_name,

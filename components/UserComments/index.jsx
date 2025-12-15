@@ -18,9 +18,8 @@ export default function UserComments() {
   const navigate = useNavigate();
 
   const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
-  const setSelectedPhotoId = useZustandStore((s) => s.setSelectedPhotoId);
+  const advancedFeaturesEnabled = useZustandStore((s) => s.advancedFeaturesEnabled);
 
-  // React Query fetch
   const {
     data: comments = [],
     isLoading,
@@ -29,6 +28,7 @@ export default function UserComments() {
   } = useQuery({
     queryKey: ["userComments", userId],
     queryFn: () => fetchUserComments(userId),
+    enabled: !!userId,
   });
 
   if (isLoading) return <div>Loading information...</div>;
@@ -40,28 +40,47 @@ export default function UserComments() {
 
   return (
     <List>
-      {comments.map((comment) => (
-        <ListItem
-          key={comment._id}
-          button
-          onClick={() => {
-            setSelectedUserId(comment.photoUserId);
-            setSelectedPhotoId(comment.photoId);
-            navigate(`/photos/${comment.photoUserId}/${comment.photoId}`);
-          }}
-          alignItems="flex-start"
-        >
-          <ListItemAvatar>
-            <Avatar
-              variant="rounded"
-              src={`http://localhost:3001/images/${comment.photoUrl}`}
-              sx={{ width: 80, height: 80, marginRight: 2 }}
-            />
-          </ListItemAvatar>
+      {comments.map((comment, index) => {
+        return (
+          <ListItem
+            key={`${comment.photoId}-${index}`}
+            button
+            alignItems="flex-start"
+            onClick={() => {
+              // Use photoUserId (photo owner) instead of userId (commenter)
+              setSelectedUserId(comment.photoUserId);
+              
+              // Navigate with photoId in URL - works in advanced mode
+              // In non-advanced mode, it will just show all photos
+              if (advancedFeaturesEnabled) {
+                navigate(`/photos/${comment.photoUserId}/${comment.photoId}`);
+              } else {
+                // In non-advanced mode, just go to the photos page
+                // The specific photo will be visible in the grid
+                navigate(`/photos/${comment.photoUserId}`);
+              }
+            }}
+          >
+            <ListItemAvatar>
+              <Avatar
+                variant="rounded"
+                src={`http://localhost:3001/images/${comment.photoUrl}`}
+                alt="commented photo"
+                sx={{
+                  width: 80,
+                  height: 80,
+                  mr: 2,
+                }}
+              />
+            </ListItemAvatar>
 
-          <ListItemText primary={comment.comment} />
-        </ListItem>
-      ))}
+            <ListItemText
+              primary={comment.comment}
+              secondary={new Date(comment.date_time).toLocaleString()}
+            />
+          </ListItem>
+        );
+      })}
     </List>
   );
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Typography, Button, Box } from '@mui/material';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchUserById, deleteUser } from "../../api";
+import { fetchUserById, fetchUserStats, deleteUser } from "../../api";
 
 import './styles.css';
 import ConfirmDialog from '../ConfirmDialog';
@@ -13,15 +13,13 @@ function UserDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  // Get current user from Zustand
+  // Zustand
   const currentUser = useZustandStore((state) => state.currentUser);
   const resetStore = useZustandStore((state) => state.resetStore);
   const setSelectedUserId = useZustandStore((s) => s.setSelectedUserId);
 
-  // State for confirmation dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  // Check if viewing own profile
   const isOwnProfile = currentUser && currentUser._id === userId;
 
   useEffect(() => {
@@ -30,23 +28,32 @@ function UserDetail() {
     }
   }, [userId, setSelectedUserId]);
 
-  // Fetch user data
+  // Fetch user info
   const {
     data: user,
     isLoading,
     isError,
     error,
   } = useQuery({
-    queryKey: ["user", userId],      
+    queryKey: ["user", userId],
     queryFn: () => fetchUserById(userId),
     enabled: !!userId,
   });
 
-  // Delete user mutation
+  // Fetch user stats
+  const {
+    data: stats,
+    isLoading: statsLoading,
+  } = useQuery({
+    queryKey: ["userStats", userId],
+    queryFn: () => fetchUserStats(userId),
+    enabled: !!userId,
+  });
+
+  // Delete user
   const deleteUserMutation = useMutation({
     mutationFn: () => deleteUser(userId),
     onSuccess: () => {
-      // Clear all state and redirect to login
       resetStore();
       queryClient.clear();
       navigate('/login-register');
@@ -57,17 +64,8 @@ function UserDetail() {
     }
   });
 
-  const handleDeleteAccount = () => {
-    setDeleteDialogOpen(true);
-  };
-
-  const handleConfirmDelete = () => {
-    setDeleteDialogOpen(false);
-    deleteUserMutation.mutate();
-  };
-
   if (isLoading) return <div>Loading information...</div>;
-  if (isError) return <div>Error with loading user: {error.message}</div>;
+  if (isError) return <div>Error loading user: {error.message}</div>;
 
   return (
     <div>
@@ -87,20 +85,102 @@ function UserDetail() {
         <strong>Description:</strong> {user?.description || "N/A"}
       </Typography>
 
-      <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-        <Button 
-          variant="contained" 
-          component={Link} 
+      {/* ===== USER PHOTO STATS ===== */}
+      {!statsLoading && stats && (
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="h6">Photo Stats</Typography>
+
+          <Box sx={{ display: 'flex', gap: 4, mt: 2, flexWrap: 'wrap' }}>
+            {/* Most Recent Photo */}
+            {stats.mostRecentPhoto && (
+              <Box>
+                <Typography variant="subtitle1">Most Recent Photo</Typography>
+                <Link to={`/photos/${userId}`}>
+                  <Box
+                  component={Link}
+                  to={`/photos/${userId}`}
+                  sx={{
+                    display: "inline-block",
+                    width: 120,
+                    height: 120,
+                    borderRadius: 1,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={`http://localhost:3001/images/${stats.mostRecentPhoto.file_name}`}
+                    alt="Most recent"
+                    sx={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      cursor: "pointer",
+                    }}
+                  />
+                </Box>
+                </Link>
+                <Typography variant="body2">
+                  Uploaded:{" "}
+                  {new Date(stats.mostRecentPhoto.date_time).toLocaleString()}
+                </Typography>
+              </Box>
+            )}
+
+            {/* Most Commented Photo */}
+            {stats.mostCommentedPhoto && (
+              <Box>
+                <Typography variant="subtitle1">Most Commented Photo</Typography>
+                <Link to={`/photos/${userId}`}>
+                <Box
+                  component={Link}
+                  to={`/photos/${userId}`}
+                  sx={{
+                    display: "inline-block",
+                    width: 120,
+                    height: 120,
+                    borderRadius: 1,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={`http://localhost:3001/images/${stats.mostCommentedPhoto.file_name}`}
+                    alt="Most commented"
+                    sx={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      cursor: "pointer",
+                    }}
+                  />
+                </Box>
+
+                </Link>
+                <Typography variant="body2">
+                  Comments: {stats.mostCommentedPhoto.comment_count}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      )}
+
+      {/* ===== ACTION BUTTONS ===== */}
+      <Box sx={{ mt: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Button
+          variant="contained"
+          component={Link}
           to={`/photos/${userId}`}
         >
           View Photos
         </Button>
 
         {isOwnProfile && (
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             color="error"
-            onClick={handleDeleteAccount}
+            onClick={() => setDeleteDialogOpen(true)}
             disabled={deleteUserMutation.isPending}
           >
             {deleteUserMutation.isPending ? 'Deleting...' : 'Delete Account'}
@@ -112,7 +192,10 @@ function UserDetail() {
       <ConfirmDialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleConfirmDelete}
+        onConfirm={() => {
+          setDeleteDialogOpen(false);
+          deleteUserMutation.mutate();
+        }}
         title="Delete Account?"
         message="Are you sure you want to delete your account? This will permanently delete all your photos, comments, and account information. This action cannot be undone."
       />
