@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Divider,
   List,
@@ -6,17 +6,34 @@ import {
   ListItemText,
   ListItemButton,
 } from "@mui/material";
-
+import { formatDistanceToNow } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query"; ///
-import { fetchUsers, fetchPhotosByUser } from "../../api";    ///
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 
+import { fetchUsers, fetchPhotosByUser } from "../../api";
 import useZustandStore from "../../zustandStore";
+import socket from "../../socket";
 import "./styles.css";
 
-import { useEffect, useState } from "react";
-import socket from "../../socket";
-import { formatDistanceToNow } from "date-fns";
+// Helper function moved before component
+function activityText(activity) {
+  if (!activity) return "No recent activity";
+
+  switch (activity.activity_type) {
+    case "PHOTO_UPLOAD":
+      return "posted a photo";
+    case "COMMENT_ADDED":
+      return "added a comment";
+    case "USER_REGISTER":
+      return "registered";
+    case "USER_LOGIN":
+      return "logged in";
+    case "USER_LOGOUT":
+      return "logged out";
+    default:
+      return "did something";
+  }
+}
 
 function UserList() {
   // alert('NEW VERSION LOADED!'); 
@@ -34,7 +51,7 @@ function UserList() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) return undefined;
 
     const handleNewActivity = () => {
       queryClient.invalidateQueries(["users"]);       // re-fetch /user/list so sidebar updates
@@ -202,25 +219,6 @@ function UserList() {
       ))}
     </List>
   );
-}
-
-function activityText(activity) {
-  if (!activity) return "No recent activity";
-
-  switch (activity.activity_type) {
-    case "PHOTO_UPLOAD":
-      return "posted a photo";
-    case "COMMENT_ADDED":
-      return "added a comment";
-    case "USER_REGISTER":
-      return "registered";
-    case "USER_LOGIN":
-      return "logged in";
-    case "USER_LOGOUT":
-      return "logged out";
-    default:
-      return "did something";
-  }
 }
 
 export default UserList;

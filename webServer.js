@@ -348,10 +348,9 @@ app.get("/user/:userId/stats", async (req, res) => {
       });
     }
 
-    const mostRecentPhoto = userPhotos.reduce((latest, photo) =>
-      new Date(photo.date_time) > new Date(latest.date_time)
+    const mostRecentPhoto = userPhotos.reduce((latest, photo) => (new Date(photo.date_time) > new Date(latest.date_time)
         ? photo
-        : latest
+        : latest)
     );
 
     const mostCommentedPhoto = userPhotos.reduce((most, photo) => {

@@ -1,19 +1,18 @@
 import React, { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button, Box, Typography } from "@mui/material";
-import useZustandStore from "../../zustandStore";
-import { uploadPhoto } from "../../api";
-import { useQuery } from "@tanstack/react-query";
-import { fetchUsers } from "../../api";
-import {
+import { useMutation, useQueryClient , useQuery } from "@tanstack/react-query";
+import { Button, Box, Typography ,
   Checkbox,
   FormControlLabel,
   FormGroup,
 } from "@mui/material";
+import useZustandStore from "../../zustandStore";
+import { uploadPhoto , fetchUsers } from "../../api";
 
 export default function AddPhotos() {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState("");
+  const [limitVisibility, setLimitVisibility] = useState(false);
+  const [sharedWith, setSharedWith] = useState([]);
 
   const loggedInUser = useZustandStore((s) => s.loggedInUser); 
   const queryClient = useQueryClient();
@@ -51,9 +50,6 @@ export default function AddPhotos() {
     uploadMutation.mutate(formData);
   };
 
-  const [limitVisibility, setLimitVisibility] = useState(false);
-  const [sharedWith, setSharedWith] = useState([]);
-
   const { data: users = [] } = useQuery({
     queryKey: ["users"],
     queryFn: fetchUsers,
@@ -73,7 +69,7 @@ export default function AddPhotos() {
 
       <Box sx={{ mt: 2 }}>
         <FormControlLabel
-          control={
+          control={(
             <Checkbox
               size="small"
               checked={limitVisibility}
@@ -82,12 +78,12 @@ export default function AddPhotos() {
                 if (!e.target.checked) setSharedWith([]);
               }}
             />
-          }
-          label={
+          )}
+          label={(
             <Typography variant="body2">
               Limit who can see this photo
             </Typography>
-          }
+          )}
         />
       </Box>
 
@@ -103,7 +99,7 @@ export default function AddPhotos() {
               .map((user) => (
                 <FormControlLabel
                   key={user._id}
-                  control={
+                  control={(
                     <Checkbox
                       size="small"
                       checked={sharedWith.includes(user._id)}
@@ -117,12 +113,12 @@ export default function AddPhotos() {
                         }
                       }}
                     />
-                  }
-                  label={
+                  )}
+                  label={(
                     <Typography variant="body2">
                       {user.first_name} {user.last_name}
                     </Typography>
-                  }
+                  )}
                 />
               ))}
           </FormGroup>
