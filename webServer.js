@@ -433,9 +433,11 @@ app.get("/photosOfUser/:id", async (req, res) => {
     const photos = await Photo.find({
       user_id: userId,
       $or: [
-        { sharedWith: null },           // visible to everyone
-        { user_id: currentUserId },     // owner
-        { sharedWith: currentUserId },  // explicitly shared
+        { sharedWith: { $exists: false } }, // legacy / default
+        { sharedWith: null },               // explicitly public
+        { sharedWith: { $size: 0 } },       // empty array = public
+        { user_id: currentUserId },         // owner
+        { sharedWith: currentUserId },      // explicitly shared
       ],
     })
     .select("-__v")
