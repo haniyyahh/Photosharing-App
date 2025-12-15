@@ -294,16 +294,26 @@ app.get("/user/:id", async (req, res) => {
   }
 });
 
-// USER STATS (most recent photo, most commented photo)
+// USER STATS (most recent photo, most commented photo) with visibility
 app.get("/user/:userId/stats", async (req, res) => {
   try {
     const { userId } = req.params;
+    const currentUserId = req.session.user._id;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).send({ error: "Invalid user id format" });
     }
 
-    const userPhotos = await Photo.find({ user_id: userId })
+    const userPhotos = await Photo.find({
+      user_id: userId,
+      $or: [
+        { sharedWith: { $exists: false } }, // legacy / default
+        { sharedWith: null },               // public
+        { sharedWith: { $size: 0 } },       // public
+        { user_id: currentUserId },         // viewer owns photo
+        { sharedWith: currentUserId },      // explicitly shared
+      ],
+    })
       .select("_id file_name date_time comments")
       .lean();
 
@@ -314,19 +324,19 @@ app.get("/user/:userId/stats", async (req, res) => {
       });
     }
 
-    const mostRecentPhoto = userPhotos.reduce((latest, photo) => {
-      return new Date(photo.date_time) > new Date(latest.date_time) 
-        ? photo 
-        : latest;
+    const mostRecentPhoto = userPhotos.reduce((latest, photo) =>
+      new Date(photo.date_time) > new Date(latest.date_time)
+        ? photo
+        : latest
+    );
+
+    const mostCommentedPhoto = userPhotos.reduce((most, photo) => {
+      const count = photo.comments?.length || 0;
+      const bestCount = most.comments?.length || 0;
+      return count > bestCount ? photo : most;
     });
 
-    const mostCommentedPhoto = userPhotos.reduce((mostCommented, photo) => {
-      const photoCommentCount = photo.comments?.length || 0;
-      const mostCommentedCount = mostCommented.comments?.length || 0;
-      return photoCommentCount > mostCommentedCount ? photo : mostCommented;
-    });
-
-    const response = {
+    return res.status(200).send({
       mostRecentPhoto: {
         _id: mostRecentPhoto._id.toString(),
         file_name: mostRecentPhoto.file_name,
@@ -337,9 +347,7 @@ app.get("/user/:userId/stats", async (req, res) => {
         file_name: mostCommentedPhoto.file_name,
         comment_count: mostCommentedPhoto.comments?.length || 0,
       },
-    };
-
-    return res.status(200).send(response);
+    });
   } catch (err) {
     console.error("Error in /user/:userId/stats:", err);
     return res.status(500).send({ error: "Internal server error" });
@@ -658,31 +666,37 @@ app.delete("/photos/:photoId", async (req, res) => {
 // COMMENT ROUTES
 // ============================================
 
-// GET COMMENTS BY USER
+// GET COMMENTS BY USER (with visibility enforcement)
 app.get("/commentsByUser/:userId", async (req, res) => {
   try {
-    const userId = req.params.userId;
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    const commentUserId = req.params.userId;
+    const currentUserId = req.session.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(commentUserId)) {
       return res.status(400).send({ error: "Invalid user id format" });
     }
 
-    // Find all photos that have comments by this user
-    const photos = await Photo.find({ "comments.user_id": userId }).lean();
+    const photos = await Photo.find({
+      "comments.user_id": commentUserId,
+
+      // VISIBILITY RULES
+      $or: [
+        { sharedWith: { $exists: false } },
+        { sharedWith: null },
+        { sharedWith: { $size: 0 } },
+        { user_id: currentUserId },     // viewer owns photo
+        { sharedWith: currentUserId },  // explicitly shared
+      ],
+    }).lean();
 
     const userComments = [];
 
-    photos.forEach(photo => {
-      if (!photo.comments) return;
-
-      photo.comments.forEach(comment => {
-        if (comment.user_id.toString() === userId) {
+    photos.forEach((photo) => {
+      photo.comments?.forEach((comment) => {
+        if (comment.user_id.toString() === commentUserId) {
           userComments.push({
-            _id: comment._id,
-            comment: comment.comment,
-            date_time: comment.date_time,
-
+            ...comment,
             photoId: photo._id.toString(),
-            photoIndex: photo._id.toString(), // fallback safety
             photoUrl: photo.file_name,
             photoUserId: photo.user_id.toString(),
           });
