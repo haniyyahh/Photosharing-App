@@ -64,6 +64,7 @@ function UserDetail() {
     },
     onError: (err) => {
       console.error('Error deleting account:', err);
+      // eslint-disable-next-line no-alert
       alert('Failed to delete account. Please try again.');
     }
   });

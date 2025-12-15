@@ -75,7 +75,7 @@ function UserPhotos({ userId, photoId = null }) {
 
   // React Query mutation to LIKE photo
   const likeMutation = useMutation({
-    mutationFn: (photoId) => likePhoto(photoId),
+    mutationFn: (targetPhotoId) => likePhoto(targetPhotoId),
     onSuccess: () => {
       queryClient.invalidateQueries(["photosOfUser", userId]);
     },
@@ -83,7 +83,7 @@ function UserPhotos({ userId, photoId = null }) {
 
   // DELETE PHOTO mutation
   const deletePhotoMutation = useMutation({
-    mutationFn: (photoId) => deletePhoto(photoId),
+    mutationFn: (targetPhotoId) => deletePhoto(targetPhotoId),
     onSuccess: () => {
       queryClient.invalidateQueries(["photosOfUser", userId]);
       setPhotoToDelete(null);
@@ -97,19 +97,21 @@ function UserPhotos({ userId, photoId = null }) {
     },
     onError: (err) => {
       console.error('Error deleting photo:', err);
+      // eslint-disable-next-line no-alert
       alert('Failed to delete photo. Please try again.');
     }
   });
 
   // DELETE COMMENT mutation
   const deleteCommentMutation = useMutation({
-    mutationFn: ({ commentId, photoId }) => deleteComment(commentId, photoId),
+    mutationFn: ({ commentId, targetPhotoId }) => deleteComment(commentId, targetPhotoId),
     onSuccess: () => {
       queryClient.invalidateQueries(["photosOfUser", userId]);
       setCommentToDelete(null);
     },
     onError: (err) => {
       console.error('Error deleting comment:', err);
+      // eslint-disable-next-line no-alert
       alert('Failed to delete comment. Please try again.');
     }
   });
@@ -178,8 +180,8 @@ function UserPhotos({ userId, photoId = null }) {
   };
 
   // Delete handlers
-  const handleDeletePhoto = (photoId) => {
-    setPhotoToDelete(photoId);
+  const handleDeletePhoto = (targetPhotoId) => {
+    setPhotoToDelete(targetPhotoId);
   };
 
   const handleConfirmDeletePhoto = () => {
@@ -188,8 +190,8 @@ function UserPhotos({ userId, photoId = null }) {
     }
   };
 
-  const handleDeleteComment = (commentId, photoId) => {
-    setCommentToDelete({ commentId, photoId });
+  const handleDeleteComment = (commentId, targetPhotoId) => {
+    setCommentToDelete({ commentId, photoId: targetPhotoId });
   };
 
   const handleConfirmDeleteComment = () => {
