@@ -127,7 +127,7 @@ function UserPhotos({ userId }) {
 
   // DELETE PHOTO mutation
   const deletePhotoMutation = useMutation({
-    mutationFn: ({ commentId, photoId }) => deleteComment(commentId, photoId),
+    mutationFn: (targetPhotoId) => deletePhoto(targetPhotoId),
     onSuccess: () => {
       queryClient.invalidateQueries(["photosOfUser", userId]);
       setPhotoToDelete(null);
@@ -148,7 +148,7 @@ function UserPhotos({ userId }) {
 
   // DELETE COMMENT mutation
   const deleteCommentMutation = useMutation({
-    mutationFn: ({ commentId, photoId }) => deleteComment(commentId, photoId),
+    mutationFn: ({ commentId, targetPhotoId }) => deleteComment(commentId, targetPhotoId),
     onSuccess: () => {
       queryClient.invalidateQueries(["photosOfUser", userId]);
       setCommentToDelete(null);
@@ -262,7 +262,7 @@ function UserPhotos({ userId }) {
   };
 
   const handleDeleteComment = (commentId, targetPhotoId) => {
-    setCommentToDelete({ commentId, photoId: targetPhotoId });
+    setCommentToDelete({ commentId, targetPhotoId });
   };
 
   const handleConfirmDeleteComment = () => {
