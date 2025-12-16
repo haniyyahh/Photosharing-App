@@ -14,7 +14,7 @@ export default function AddPhotos() {
   const [limitVisibility, setLimitVisibility] = useState(false);
   const [sharedWith, setSharedWith] = useState([]);
 
-  const loggedInUser = useZustandStore((s) => s.loggedInUser); 
+  const currentUser = useZustandStore((s) => s.currentUser);
   const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
@@ -24,8 +24,8 @@ export default function AddPhotos() {
       setFile(null);
 
       // auto refresh the user's photos
-      if (loggedInUser?._id) {
-        queryClient.invalidateQueries(["photosOfUser", loggedInUser._id]);
+      if (currentUser?._id) {
+        queryClient.invalidateQueries(["photosOfUser", currentUser._id]);
       }
     },
     onError: () => setStatus("Upload failed. Try again."),
@@ -95,11 +95,11 @@ export default function AddPhotos() {
 
           <FormGroup>
             {users
-              .filter((u) => u._id !== loggedInUser?._id)
+              .filter((u) => u._id !== currentUser?._id)
               .map((user) => (
                 <FormControlLabel
                   key={user._id}
-                  control={(
+                  control={
                     <Checkbox
                       size="small"
                       checked={sharedWith.includes(user._id)}
@@ -107,18 +107,16 @@ export default function AddPhotos() {
                         if (e.target.checked) {
                           setSharedWith([...sharedWith, user._id]);
                         } else {
-                          setSharedWith(
-                            sharedWith.filter((id) => id !== user._id)
-                          );
+                          setSharedWith(sharedWith.filter((id) => id !== user._id));
                         }
                       }}
                     />
-                  )}
-                  label={(
+                  }
+                  label={
                     <Typography variant="body2">
                       {user.first_name} {user.last_name}
                     </Typography>
-                  )}
+                  }
                 />
               ))}
           </FormGroup>
