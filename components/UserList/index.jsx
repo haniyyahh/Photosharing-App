@@ -104,9 +104,9 @@ function UserList() {
   });
 
   // 4. Collect all comments from all photos
-  const allComments = usersWithCounts.flatMap((user) => 
+  const allComments = usersWithCounts.flatMap((user) => (
     user.photos.flatMap((photo) => photo.comments || [])
-  );
+  ));
 
   // 5. Count comments per user (comment authors)
   const commentCountMap = allComments.reduce((acc, comment) => {
