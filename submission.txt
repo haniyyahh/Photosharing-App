@@ -1,0 +1,49 @@
+Clowie Garcia (cdg190005) and Haniyyah Hamid (hbh180000)
+Story number and name: 1 - Extend user profile detail with usage
+Story points: 3
+Brief description to see the story in action: 
+Click on a user to see their Photo Stats containing Most Recent Photo and Most Commented Photo.
+Click on a photo's thumbnail to lead to the photo (will turn into advanced mode).
+
+Story number and name: 3 - Visibility control of photos
+Story points: 4
+Brief description to see the story in action: 
+Click "Add Photo" button to choose visibility settings.
+If nothing is selected, visibility of the photo is available for all.
+If a user is selected, that user will be able to see the photo and its comments.
+
+Story number and name: 4 - Activity feed
+Story points: 4
+Brief description to see the story in action: 
+Click on "Activities" to view the recent 5 activities that have happened (user login/out, photo uploaded, comment).
+Socket implementation allows viewing the activity to update in real-time.
+
+Story number and name: 5 - Deleting comments, photos, and users
+Story points: 4
+Brief description to see the story in action: 
+Click on trashcan icon to delete photos and comments - viewable in both advanced mode and off.
+Click on user to visit user's page, then click on "DELETE ACCOUNT" button, which user will get logged out.
+
+Story number and name: 6 - Photo "like" votes
+Story points: 4
+Brief description to see the story in action: 
+Click on user's photos to click "LIKE" button to like.
+Socket implementation allows seeing like count change in real-time.
+
+Story number and name: 8 - Sidebar list marks users with new activity
+Story points: 3
+Brief description to see the story in action:
+Log in/out to see that a user's login/out activity has been recorded.
+Add a photo to see that user uploaded a photo has been recorded.
+Socket implementation allows seeing the above changes in real-time.
+
+Total Story Points: 22
+
+Marketing Video URL: https://youtu.be/AefStuqO8So
+
+Is it OK if we post your Marketing Video URL on the class discussion forum?
+No
+
+Any special instructions for grading (it should be easy for someone to run your
+app from a new machine):
+None

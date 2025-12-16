@@ -148,7 +148,7 @@ function UserPhotos({ userId }) {
 
   // DELETE COMMENT mutation
   const deleteCommentMutation = useMutation({
-    mutationFn: ({ commentId, targetPhotoId }) => deleteComment(commentId, targetPhotoId),
+    mutationFn: ({ commentId, photoId }) => deleteComment(commentId, photoId),
     onSuccess: () => {
       queryClient.invalidateQueries(["photosOfUser", userId]);
       setCommentToDelete(null);
