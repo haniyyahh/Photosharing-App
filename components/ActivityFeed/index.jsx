@@ -190,25 +190,25 @@ function ActivityFeed() {
                   </Box>
 
                   {/* Photo Thumbnail (for photo uploads and comments) */}
-                  {activityInfo.showThumbnail && activity.file_name && activity.photo_id && (
-                    // <Link to={`/photos/${activity.user?._id}/${activity.photo_id}`}>
-                    <Link to={`/photos/${activity.photo_owner_id}/${activity.photo_id}`}>
-                      <Box
-                        component="img"
-                        src={`/images/${activity.file_name}`}
-                        alt="Activity thumbnail"
-                        sx={{
-                          width: 80,
-                          height: 80,
-                          objectFit: 'cover',
-                          borderRadius: 1,
-                          cursor: 'pointer',
-                          '&:hover': {
-                            opacity: 0.8,
-                          },
-                        }}
-                      />
-                    </Link>
+                  {activityInfo.showThumbnail &&
+                    activity.file_name &&
+                    activity.photo_id &&
+                    activity.photo_owner_id && (
+                      <Link to={`/photos/${activity.photo_owner_id}/${activity.photo_id}`}>
+                        <Box
+                          component="img"
+                          src={`/images/${activity.file_name}`}
+                          alt="Activity thumbnail"
+                          sx={{
+                            width: 80,
+                            height: 80,
+                            objectFit: 'cover',
+                            borderRadius: 1,
+                            cursor: 'pointer',
+                            '&:hover': { opacity: 0.8 },
+                          }}
+                        />
+                      </Link>
                   )}
                 </Box>
               </CardContent>
