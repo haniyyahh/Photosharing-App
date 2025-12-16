@@ -674,6 +674,9 @@ app.delete("/photos/:photoId", async (req, res) => {
     }
 
     await Photo.findByIdAndDelete(photoId);
+    
+    // removes activites related to this photo
+    await Activity.deleteMany({ photo_id: photoId });
 
     return res.status(200).send({ 
       success: true, 
