@@ -28,7 +28,7 @@ import "./styles.css";
 import socket from "../../socket";
 
 function UserPhotos({ userId }) {
-  const { photoId } = useParams(); // Get photoId from URL params instead of props
+  const { photoId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -74,10 +74,53 @@ function UserPhotos({ userId }) {
     },
   });
 
-  // React Query mutation to LIKE photo
+  // React Query mutation to LIKE photo with OPTIMISTIC UPDATES
   const likeMutation = useMutation({
     mutationFn: (targetPhotoId) => likePhoto(targetPhotoId),
-    onSuccess: () => {
+    
+    // Optimistically update the UI before the server responds
+    onMutate: async (targetPhotoId) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries(["photosOfUser", userId]);
+
+      // Snapshot the previous value
+      const previousPhotos = queryClient.getQueryData(["photosOfUser", userId]);
+
+      // Optimistically update the cache
+      queryClient.setQueryData(["photosOfUser", userId], (old) => {
+        if (!old) return old;
+        
+        return old.map((photo) => {
+          if (photo._id === targetPhotoId) {
+            const isLiked = photo.likes?.includes(loggedInUser?._id);
+            
+            return {
+              ...photo,
+              likes: isLiked
+                ? photo.likes.filter((id) => id !== loggedInUser._id) // Unlike
+                : [...(photo.likes || []), loggedInUser._id], // Like
+            };
+          }
+          return photo;
+        });
+      });
+
+      // Return context with previous value for potential rollback
+      return { previousPhotos };
+    },
+
+    // If mutation fails, rollback to previous state
+    onError: (err, targetPhotoId, context) => {
+      if (context?.previousPhotos) {
+        queryClient.setQueryData(["photosOfUser", userId], context.previousPhotos);
+      }
+      console.error('Like mutation failed:', err);
+      // eslint-disable-next-line no-alert
+      alert('Failed to update like. Please try again.');
+    },
+
+    // Always refetch after error or success to ensure data consistency
+    onSettled: () => {
       queryClient.invalidateQueries(["photosOfUser", userId]);
     },
   });
@@ -135,7 +178,7 @@ function UserPhotos({ userId }) {
         hasInitialized.current = true;
       }
     }
-  }, [photoId, sortedPhotos.length]); // Only depend on photoId and length
+  }, [photoId, sortedPhotos.length]);
 
   // Reset hasInitialized when userId changes (navigating to different user)
   useEffect(() => {
@@ -155,17 +198,34 @@ function UserPhotos({ userId }) {
     }
   }, [currentPhotoIndex, advancedFeaturesEnabled, sortedPhotos.length, userId, navigate]);
 
+  // Socket listener for photo likes updates (with debouncing to prevent rapid refetches)
   useEffect(() => {
-    const handleLikesUpdate = () => {
-      queryClient.invalidateQueries(["photosOfUser", userId]);
+    let timeoutId;
+    
+    const handleLikesUpdate = (data) => {
+      // Debounce: only invalidate after 300ms of no updates
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        // Only invalidate if we have data about which photo was updated
+        if (data?.photoId) {
+          const photoExists = sortedPhotos.some(p => p._id === data.photoId);
+          if (photoExists) {
+            queryClient.invalidateQueries(["photosOfUser", userId]);
+          }
+        } else {
+          // Fallback: invalidate all photos for this user if no specific photoId
+          queryClient.invalidateQueries(["photosOfUser", userId]);
+        }
+      }, 300);
     };
 
     socket.on("photo_likes_updated", handleLikesUpdate);
 
     return () => {
+      clearTimeout(timeoutId);
       socket.off("photo_likes_updated", handleLikesUpdate);
     };
-  }, [queryClient, userId]);
+  }, [queryClient, userId, sortedPhotos]);
 
   const handlePrevious = () => {
     if (currentPhotoIndex > 0) {
@@ -224,6 +284,7 @@ function UserPhotos({ userId }) {
   if (advancedFeaturesEnabled) {
     const photo = sortedPhotos[currentPhotoIndex];
     const isOwnPhoto = loggedInUser && photo.user_id === loggedInUser._id;
+    const isPhotoLikedByCurrentUser = photo.likes?.includes(loggedInUser?._id);
 
     return (
       <Box sx={{ width: "100%", maxWidth: "100%", overflow: "hidden" }}>
@@ -294,16 +355,16 @@ function UserPhotos({ userId }) {
             
               <Box sx={{ mt: 1, mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
                 <Button
-                  variant={photo.likes?.includes(loggedInUser?._id) ? "contained" : "outlined"}
+                  variant={isPhotoLikedByCurrentUser ? "contained" : "outlined"}
                   color="primary"
                   onClick={() => likeMutation.mutate(photo._id)}
                   disabled={!loggedInUser || likeMutation.isPending}
                 >
-                  {photo.likes?.includes(loggedInUser?._id) ? "Unlike" : "Like"}
+                  {isPhotoLikedByCurrentUser ? "Unlike" : "Like"}
                 </Button>
 
                 <Typography variant="body2" color="textSecondary">
-                  {photo.likes?.length || 0} likes
+                  {photo.likes?.length || 0} {photo.likes?.length === 1 ? 'like' : 'likes'}
                 </Typography>
               </Box>
 
@@ -376,13 +437,14 @@ function UserPhotos({ userId }) {
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="Write something..."
+                  disabled={!loggedInUser}
                 />
 
                 <Button
                   variant="contained"
                   sx={{ mt: 1.5 }}
                   onClick={handleAddComment}
-                  disabled={!newComment.trim() || commentMutation.isPending}
+                  disabled={!loggedInUser || !newComment.trim() || commentMutation.isPending}
                 >
                   {commentMutation.isPending ? "Posting..." : "Add Comment"}
                 </Button>
@@ -417,6 +479,7 @@ function UserPhotos({ userId }) {
       <Grid container spacing={2}>
         {sortedPhotos.map((photo) => {
           const isOwnPhoto = loggedInUser && photo.user_id === loggedInUser._id;
+          const isPhotoLikedByCurrentUser = photo.likes?.includes(loggedInUser?._id);
           
           return (
             <Grid item xs={12} sm={6} md={4} key={photo._id}>
@@ -449,15 +512,15 @@ function UserPhotos({ userId }) {
                   <Box sx={{ mt: 1, display: "flex", alignItems: "center", gap: 1 }}>
                     <Button
                       size="small"
-                      variant={photo.likes?.includes(loggedInUser?._id) ? "contained" : "outlined"}
+                      variant={isPhotoLikedByCurrentUser ? "contained" : "outlined"}
                       onClick={() => likeMutation.mutate(photo._id)}
                       disabled={!loggedInUser || likeMutation.isPending}
                     >
-                      {photo.likes?.includes(loggedInUser?._id) ? "Unlike" : "Like"}
+                      {isPhotoLikedByCurrentUser ? "Unlike" : "Like"}
                     </Button>
 
                     <Typography variant="caption">
-                      {photo.likes?.length || 0} likes
+                      {photo.likes?.length || 0} {photo.likes?.length === 1 ? 'like' : 'likes'}
                     </Typography>
                   </Box>
 
