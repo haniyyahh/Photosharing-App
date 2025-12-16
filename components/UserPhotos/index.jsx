@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Typography,
   Grid,
@@ -10,7 +10,7 @@ import {
   IconButton,
 } from "@mui/material";
 import { NavigateBefore, NavigateNext, Delete } from "@mui/icons-material";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -27,7 +27,8 @@ import "./styles.css";
 
 import socket from "../../socket";
 
-function UserPhotos({ userId, photoId = null }) {
+function UserPhotos({ userId }) {
+  const { photoId } = useParams(); // Get photoId from URL params instead of props
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -39,7 +40,7 @@ function UserPhotos({ userId, photoId = null }) {
 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [newComment, setNewComment] = useState("");
-  const initialized = React.useRef(false);
+  const hasInitialized = useRef(false);
 
   // Delete confirmation state
   const [photoToDelete, setPhotoToDelete] = useState(null);
@@ -116,19 +117,35 @@ function UserPhotos({ userId, photoId = null }) {
     }
   });
 
-  // Initialize index when photos load + photoId provided
+  // Initialize index based on URL photoId - ONLY ONCE when component mounts or photoId changes
   useEffect(() => {
-    if (!initialized.current && photoId && sortedPhotos.length > 0) {
-      const idx = sortedPhotos.findIndex((p) => p._id === photoId);
-      if (idx !== -1) setCurrentPhotoIndex(idx);
-      initialized.current = true;
+    if (sortedPhotos.length > 0) {
+      if (!photoId) {
+        // No photoId in URL - reset to first photo
+        setCurrentPhotoIndex(0);
+        hasInitialized.current = true;
+      } else if (!hasInitialized.current || photoId) {
+        // Find specific photo by ID
+        const idx = sortedPhotos.findIndex((p) => p._id === photoId);
+        if (idx !== -1) {
+          setCurrentPhotoIndex(idx);
+        } else {
+          setCurrentPhotoIndex(0);
+        }
+        hasInitialized.current = true;
+      }
     }
-  }, [photoId, sortedPhotos]);
+  }, [photoId, sortedPhotos.length]); // Only depend on photoId and length
 
-  // Sync URL (advanced mode only)
+  // Reset hasInitialized when userId changes (navigating to different user)
   useEffect(() => {
-    if (advancedFeaturesEnabled && userPhotos.length > 0) {
-      const currentPhoto = userPhotos[currentPhotoIndex];
+    hasInitialized.current = false;
+  }, [userId]);
+
+  // Sync URL when index changes in advanced mode
+  useEffect(() => {
+    if (advancedFeaturesEnabled && sortedPhotos.length > 0 && hasInitialized.current) {
+      const currentPhoto = sortedPhotos[currentPhotoIndex];
       if (currentPhoto) {
         const newUrl = `/photos/${userId}/${currentPhoto._id}`;
         if (window.location.pathname !== newUrl) {
@@ -136,13 +153,7 @@ function UserPhotos({ userId, photoId = null }) {
         }
       }
     }
-  }, [
-    currentPhotoIndex,
-    advancedFeaturesEnabled,
-    userPhotos,
-    userId,
-    navigate,
-  ]);
+  }, [currentPhotoIndex, advancedFeaturesEnabled, sortedPhotos.length, userId, navigate]);
 
   useEffect(() => {
     const handleLikesUpdate = () => {
@@ -163,7 +174,7 @@ function UserPhotos({ userId, photoId = null }) {
   };
 
   const handleNext = () => {
-    if (currentPhotoIndex < userPhotos.length - 1) {
+    if (currentPhotoIndex < sortedPhotos.length - 1) {
       setCurrentPhotoIndex(currentPhotoIndex + 1);
     }
   };
