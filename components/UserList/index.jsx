@@ -36,7 +36,6 @@ function activityText(activity) {
 }
 
 function UserList() {
-  // alert('NEW VERSION LOADED!'); 
   const navigate = useNavigate();
 
   // Zustand global store
@@ -54,7 +53,7 @@ function UserList() {
     if (!currentUser) return undefined;
 
     const handleNewActivity = () => {
-      queryClient.invalidateQueries(["users"]);       // re-fetch /user/list so sidebar updates
+      queryClient.invalidateQueries(["users"]);
     };
 
     socket.on("new_activity", handleNewActivity);
@@ -73,7 +72,7 @@ function UserList() {
   } = useQuery({
     queryKey: ["users"],
     queryFn: fetchUsers,
-    enabled: !!currentUser, // only run if logged in
+    enabled: !!currentUser,
   });
 
   // 2. Fetch photos for each user in parallel
@@ -82,13 +81,13 @@ function UserList() {
       users?.map((user) => ({
         queryKey: ["photosOfUser", user._id],
         queryFn: () => fetchPhotosByUser(user._id),
-        enabled: !!users && !!currentUser, // currentUser check
+        enabled: !!users && !!currentUser,
       })) || [],
   });
 
   // Early return if not logged in
   if (!currentUser) {
-    return null; // Don't render anything if not logged in
+    return null;
   }
 
   // Loading states
@@ -105,7 +104,8 @@ function UserList() {
   });
 
   // 4. Collect all comments from all photos
-  const allComments = usersWithCounts.flatMap((user) => user.photos.flatMap((photo) => photo.comments || [])
+  const allComments = usersWithCounts.flatMap((user) => 
+    user.photos.flatMap((photo) => photo.comments || [])
   );
 
   // 5. Count comments per user (comment authors)
@@ -130,12 +130,23 @@ function UserList() {
           <ListItem
             secondaryAction={
               advancedFeaturesEnabled && (
-                <>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {/* Bubble for number of photos */}
                   <span
                     className="count-bubble green"
                     title="Number of photos"
-                    style={{ marginRight: "8px" }}
+                    style={{
+                      backgroundColor: '#4caf50',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '28px',
+                      height: '28px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                    }}
                   >
                     {user.photoCount}
                   </span>
@@ -151,18 +162,24 @@ function UserList() {
                       navigate(`/comments/${user._id}`);
                     }}
                     style={{
-                      cursor: "pointer",
-                      border: "none",
-                      background: "red",
-                      color: "white",
-                      borderRadius: "50%",
-                      padding: "4px 8px",
-                      minWidth: "20px",
+                      cursor: 'pointer',
+                      border: 'none',
+                      backgroundColor: '#f44336',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '28px',
+                      height: '28px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      padding: '0',
                     }}
                   >
                     {user.commentCount}
                   </button>
-                </>
+                </div>
               )
             }
             disablePadding
@@ -186,13 +203,13 @@ function UserList() {
                     style={{
                       width: 32,
                       height: 32,
-                      objectFit: "cover",
+                      objectFit: 'cover',
                       borderRadius: 4,
                       marginRight: 8,
-                      cursor: "pointer",
+                      cursor: 'pointer',
                     }}
                     onClick={(e) => {
-                      e.stopPropagation(); // prevent ListItemButton click
+                      e.stopPropagation();
                       setSelectedUserId(user._id);
                       setSelectedPhotoId(user.lastActivity.photo_id);
                       navigate(`/photos/${user._id}`);
@@ -210,6 +227,10 @@ function UserList() {
                       )}`
                     : "No recent activity"
                 }
+                sx={{
+                  // Add padding to prevent text from going under the bubbles
+                  paddingRight: advancedFeaturesEnabled ? '80px' : '0px',
+                }}
               />
             </ListItemButton>
           </ListItem>
