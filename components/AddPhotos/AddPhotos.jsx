@@ -99,7 +99,7 @@ export default function AddPhotos() {
               .map((user) => (
                 <FormControlLabel
                   key={user._id}
-                  control={
+                  control={(
                     <Checkbox
                       size="small"
                       checked={sharedWith.includes(user._id)}
@@ -111,12 +111,12 @@ export default function AddPhotos() {
                         }
                       }}
                     />
-                  }
-                  label={
+                  )}
+                  label={(
                     <Typography variant="body2">
                       {user.first_name} {user.last_name}
                     </Typography>
-                  }
+                  )}
                 />
               ))}
           </FormGroup>
